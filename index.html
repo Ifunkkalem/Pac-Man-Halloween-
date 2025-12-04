@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Somnia Halloween - Pacman Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <style>
+    /* ... (CSS Anda) ... */
+  </style>
+</head>
+<body>
+
+<script>
+  for (let i = 0; i < 25; i++) {
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.style.width = bubble.style.height = Math.random() * 40 + 20 + "px";
+    bubble.style.left = Math.random() * 100 + "vw";
+    bubble.style.animationDuration = Math.random() * 6 + 6 + "s";
+    document.body.appendChild(bubble);
+  }
+</script>
+
+<div id="menuScreen" class="screen">
+  <h1>WELCOME SOMNIA HALLOWEEN</h1>
+  <h2>PAC-MAN EDITION</h2>
+
+  <div class="menu-box">
+    <div id="walletStatus" class="wallet-box">
+        Wallet: Not Connected <span id="currentDisplayName"></span>
+    </div>
+
+    <input 
+      id="displayNameInput" 
+      type="text" 
+      maxlength="12" 
+      placeholder="Enter Display Name (Max 12)"
+    />
+    
+    <button id="connectWalletBtn">CONNECT WALLET</button>
+    <button id="saveNameBtn">EDIT DISPLAY NAME</button>
+    <button id="playBtn">PLAY</button>
+    <button id="leaderboardBtn">LEADERBOARD</button>
+    <button id="quitBtn">QUIT</button>
+  </div>
+</div>
+
+<div id="playScreen" class="screen hidden">
+  <iframe src="pacman.html"></iframe>
+</div>
+
+<div id="leaderboardScreen" class="screen hidden">
+  <iframe src="leaderboard.html"></iframe>
+</div>
+
+<script src="app.js"></script> 
+
+</body>
+</html>
