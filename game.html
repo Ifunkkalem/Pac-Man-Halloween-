@@ -9,6 +9,7 @@
     <!-- Lucide Icons for direction arrows -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Ethers.js for On-Chain Transaction (Real TX) -->
+    <!-- PERHATIAN: Ethers v5.2 dimuat sebagai global object -->
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
     
     <style>
@@ -145,6 +146,7 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
+        // Config cadangan yang akan memicu error API Key Firebase jika tidak ada config dari lingkungan.
         const EMPTY_CONFIG_FALLBACK = '{"apiKey":"AIzaSyB-fallback","authDomain":"projectId.firebaseapp.com","projectId":"fallback-project","storageBucket":"projectId.appspot.com","messagingSenderId":"123456789012","appId":"1:123456789012:web:abac123456789012"}';
 
         function getFirebaseConfig() {
@@ -158,7 +160,7 @@
             if (!config || Object.keys(config).length === 0) {
                  try {
                     config = JSON.parse(EMPTY_CONFIG_FALLBACK);
-                    console.warn("Menggunakan konfigurasi fallback.");
+                    console.warn("Menggunakan konfigurasi fallback. Skor tidak akan tersimpan ke Leaderboard luar.");
                 } catch (e) {
                     return null;
                 }
@@ -190,8 +192,13 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        firebaseReady = true;
-                        console.log("Firebase Siap. User ID:", userId.substring(0, 8) + '...');
+                        // HANYA SET firebaseReady = true JIKA BUKAN MENGGUNAKAN FALLBACK (untuk menghindari error write)
+                        if (firebaseConfig.apiKey !== "AIzaSyB-fallback") {
+                            firebaseReady = true;
+                            console.log("Firebase Siap. User ID:", userId.substring(0, 8) + '...');
+                        } else {
+                            console.warn("Firebase Config Invalid. Mode Submission Skor Dinonaktifkan.");
+                        }
                     } else {
                         userId = null;
                         firebaseReady = false;
@@ -208,7 +215,7 @@
         /** SUBMIT SCORE KE FIREBASE (PUBLIC LEDGER) */
         async function submitFinalScore(score) {
             if (!firebaseReady || !userId || !db) {
-                console.warn("Skor tidak disimpan: Firebase tidak siap.");
+                console.warn("Skor tidak disimpan: Firebase tidak siap (API key invalid).");
                 return;
             }
             
@@ -221,6 +228,7 @@
             
             try {
                 const path = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                // Menggunakan doc() tanpa argumen untuk membuat ID baru
                 await setDoc(doc(path), scoreData); 
                 console.log(`Skor ${score} berhasil dikirim ke Public Ledger.`);
             } catch (e) {
@@ -229,7 +237,7 @@
         }
 
         // ====================================================================
-        // --- 2. LOGIKA GAME PAC-MAN CORE ---
+        // --- 2. LOGIKA GAME PAC-MAN CORE (Tidak Berubah) ---
         // ====================================================================
 
         lucide.createIcons();
@@ -238,16 +246,14 @@
         let currentScore = 0; 
         const PLAYER_SPEED = 3.5; 
         const GHOST_SIZE = 20; 
-        // FIX: Mengurangi ukuran player agar tidak menabrak dinding saat start
-        const PLAYER_SIZE = 25; 
+        const PLAYER_SIZE = 25; // Sudah di-fix
         const CANDY_VALUE = 10; 
         
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
 
-        // FIX: Menggeser posisi awal Y menjauhi dinding pusat
-        let x = 400; let y = 320; let vx = 0; let vy = 0; let currentDirection = 0; 
+        let x = 400; let y = 320; let vx = 0; let vy = 0; let currentDirection = 0; // Posisi awal sudah di-fix
 
         // Fungsi Modal (Mengganti alert)
         window.showMessage = (title, message) => {
@@ -312,7 +318,6 @@
             return false; 
         }
 
-        // Class dan Logika Ghost (TIdak Berubah)
         let ghosts = [];
         class Ghost {
             constructor(x, y, color, behavior, speed) {
@@ -322,7 +327,6 @@
         }
         
         function moveGhost(ghost) {
-            // ... (Logika Ghost)
             let targetX = x, targetY = y;
             let dx = 0, dy = 0;
 
@@ -389,7 +393,6 @@
             return distance < PLAYER_SIZE + ghost.radius; 
         }
         
-        // Logika Candy (TIdak Berubah)
         let candy = [];
         function setupCandy() {
             candy = [];
@@ -538,7 +541,7 @@
         // --- 3. FUNGSI TRANSAKSI WEB3 (REAL TX) ---
         // ====================================================================
         
-        // Alamat tujuan transfer (Placeholder, ganti dengan alamat tujuan yang sebenarnya di Somnia)
+        // Alamat tujuan transfer (Placeholder, GANTI DENGAN ALAMAT TUJUAN SOMNIA YANG BENAR)
         const SOMNIA_RECEIVER_ADDRESS = "0x0000000000000000000000000000000000000000";
         const SOMNIA_TX_AMOUNT = "0.01"; // 0.01 SOMI
 
@@ -546,19 +549,21 @@
          * Mengirim transaksi 0.01 SOMI (Real TX)
          */
         async function realSomniaTx() {
-            if (typeof window.ethereum === 'undefined') {
-                showMessage("Dompet Tidak Ditemukan", "Harap instal dompet Web3 seperti MetaMask untuk melanjutkan transaksi.");
+            // Memastikan ethers dimuat sebagai global object
+            if (typeof window.ethers === 'undefined' || typeof window.ethereum === 'undefined') {
+                showMessage("Dompet/Ethers Tidak Ditemukan", "Harap pastikan Anda menggunakan browser dengan dompet Web3 (seperti MetaMask) terinstal dan dimuat dengan benar.");
                 return false;
             }
 
             try {
                 // 1. Dapatkan akun
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                // FIX: Menggunakan window.ethers untuk mengatasi ReferenceError
+                const provider = new window.ethers.providers.Web3Provider(window.ethereum); 
                 const signer = provider.getSigner();
 
                 // 2. Konversi nilai ke Wei
-                const amountWei = ethers.utils.parseEther(SOMNIA_TX_AMOUNT);
+                const amountWei = window.ethers.utils.parseEther(SOMNIA_TX_AMOUNT);
                 
                 // 3. Buat dan kirim transaksi
                 const tx = {
@@ -572,7 +577,7 @@
                 
                 showMessage("Transaksi Dikirim", `Transaksi berhasil dikirim. Menunggu konfirmasi... Hash: ${transactionResponse.hash.substring(0, 10)}...`);
 
-                // 4. Tunggu konfirmasi (Opsional, tapi penting untuk game)
+                // 4. Tunggu konfirmasi 
                 await transactionResponse.wait();
                 
                 console.log("[SOMNIA MAINNET] Transaksi berhasil dikonfirmasi.");
@@ -583,7 +588,7 @@
                 
                 let errorMessage = "Transaksi dibatalkan atau terjadi kegagalan jaringan.";
                 if (error.code === 4001) {
-                    errorMessage = "Transaksi dibatalkan oleh pengguna.";
+                    errorMessage = "Transaksi dibatalkan oleh pengguna (User Rejected Transaction).";
                 } else if (error.message && error.message.includes("insufficient funds")) {
                      errorMessage = "Dana SOMI tidak mencukupi di dompet Anda.";
                 }
@@ -607,6 +612,7 @@
                 // Setelah game dimulai, modal ditutup.
                 document.getElementById("gameOverModal").style.display = 'none'; 
             } else {
+                // Aktifkan kembali tombol jika transaksi gagal
                 startGameButton.disabled = false;
                 startGameButton.innerText = "START GAME (Bayar 0.01 SOMI)";
             }
@@ -623,7 +629,6 @@
             ];
             
             setupCandy();
-            // Reset posisi Pac-Man (Menggunakan posisi Y yang sudah di-fix)
             x = 400; y = 320; vx = 0; vy = 0; currentDirection = 0;
             
             scoreEl.innerText = currentScore; 
