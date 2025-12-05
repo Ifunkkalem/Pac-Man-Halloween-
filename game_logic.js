@@ -15,8 +15,8 @@ const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 
 // Player State
-let x = 400; // Posisi awal di tengah
-let y = 300; 
+let x = 0; // Posisi awal di pojok
+let y = 0; 
 let vx = 0; 
 let vy = 0; 
 let currentDirection = 0; 
