@@ -4,33 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pac-Man Halloween Labyrinth</title>
-    <!-- Tailwind CSS for styling and responsiveness -->
+    <!-- Tailwind CSS untuk styling dan responsiveness -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons for direction arrows -->
+    <!-- Lucide Icons untuk tombol arah -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Ethers.js for On-Chain Transaction (Real TX) -->
-    <!-- PERHATIAN: Ethers v5.2 dimuat sebagai global object -->
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+    <!-- Ethers.js library for Web3 interaction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900;800;300&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1a1a2e;
+            background: radial-gradient(circle at top, #2b0033, #0a0010); /* Match Menu Background */
             color: white;
             padding: 1rem;
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
         }
         #game-container {
-            max-width: 1000px; 
+            max-width: 800px; 
             width: 100%;
             margin-bottom: 1rem;
-            border: 4px solid #7B00FF;
+            border: 4px solid #ff8c00; /* Oranye neon */
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 0 20px rgba(123, 0, 255, 0.5);
+            box-shadow: 0 0 20px rgba(128, 0, 128, 0.7); /* Ungu neon */
         }
         canvas {
             display: block;
@@ -64,34 +64,44 @@
             box-shadow: 0 0 0 #D35400;
             transform: translateY(4px);
         }
-        #gameOverModal {
+        #messageModal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             z-index: 1000;
             display: none;
             justify-content: center;
             align-items: center;
         }
+        #modalContent {
+             animation: neon-glow 1.5s infinite alternate;
+        }
+        
+        @keyframes neon-glow {
+            from { box-shadow: 0 0 5px #ff8c00, 0 0 10px #800080; }
+            to { box-shadow: 0 0 10px #ff8c00, 0 0 20px #800080; }
+        }
     </style>
 </head>
 <body class="min-h-screen">
 
-    <!-- Modal Game Over / Transaksi Status -->
-    <div id="gameOverModal" class="flex flex-col p-8 rounded-xl bg-gray-900 border-4 border-yellow-500 shadow-2xl w-11/12 max-w-sm">
-        <h2 id="modalTitle" class="text-3xl font-extrabold mb-4 text-center text-yellow-400"></h2>
-        <p id="modalMessage" class="text-lg text-center mb-6"></p>
-        <button onclick="hideMessage();" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold">
-            Tutup
-        </button>
+    <!-- Modal untuk Pesan Status/Game Over -->
+    <div id="messageModal">
+        <div id="modalContent" class="flex flex-col p-8 rounded-xl bg-gray-900 border-4 border-yellow-500 shadow-2xl w-11/12 max-w-sm">
+            <h2 id="modalTitle" class="text-3xl font-extrabold mb-4 text-center text-yellow-400"></h2>
+            <p id="modalMessage" class="text-lg text-center mb-6"></p>
+            <button onclick="hideMessage();" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold transition duration-150">
+                Tutup
+            </button>
+        </div>
     </div>
 
     <header class="w-full max-w-xl flex justify-between items-center p-4 bg-gray-800 rounded-lg mb-4 shadow-lg">
-        <h1 class="text-xl font-bold flex items-center">
-            <span class="text-3xl mr-2">🎃</span> Halloween Maze
+        <h1 class="text-xl font-bold flex items-center text-purple-400">
+            <span class="text-3xl mr-2 text-yellow-500">🎃</span> Labyrinth
         </h1>
         <div class="text-lg">Score: <span id="score" class="font-extrabold text-yellow-400">0</span></div>
     </header>
@@ -117,88 +127,67 @@
         </button>
     </div>
 
-    <!-- Tombol Web3 -->
+    <!-- Tombol Web3 & Navigasi -->
     <div class="flex flex-wrap justify-center gap-4 mt-8 w-full max-w-md">
-        <button id="startOnchainBtn" onclick="startGameTransaction()" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
+        <button id="startOnchainBtn" onclick="requestStartGameTransaction()" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
             START GAME (Bayar 0.01 SOMI)
         </button>
-        <button onclick="backMenu()" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
+        <button onclick="window.location.href='index.html'" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
             BACK TO MENU
         </button>
     </div>
 
     <script type="module">
-        // ====================================================================
-        // --- 1. INISIALISASI FIREBASE DAN OTENTIKASI (Untuk Submission Skor) ---
-        // ====================================================================
-        
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        let db = null;
-        let auth = null;
-        let userId = null;
-        let firebaseReady = false; 
-        
-        const startGameButton = document.getElementById("startOnchainBtn");
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, setLogLevel, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        setLogLevel('Debug');
+
+        // ====================================================================
+        // --- FIREBASE & AUTHENTICATION SETUP (Untuk Score Submission) ---
+        // ====================================================================
+        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Config cadangan yang akan memicu error API Key Firebase jika tidak ada config dari lingkungan.
         const EMPTY_CONFIG_FALLBACK = '{"apiKey":"AIzaSyB-fallback","authDomain":"projectId.firebaseapp.com","projectId":"fallback-project","storageBucket":"projectId.appspot.com","messagingSenderId":"123456789012","appId":"1:123456789012:web:abac123456789012"}';
-
+        
         function getFirebaseConfig() {
             const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
             let config = null;
-
             if (rawConfig && typeof rawConfig === 'string' && rawConfig.trim() !== '') {
-                try { config = JSON.parse(rawConfig); } catch (e) { console.error("Gagal parse Config sistem."); }
+                try { config = JSON.parse(rawConfig); } catch (e) { console.error("Gagal parse Config sistem.", e); }
             }
-            
             if (!config || Object.keys(config).length === 0) {
-                 try {
-                    config = JSON.parse(EMPTY_CONFIG_FALLBACK);
-                    console.warn("Menggunakan konfigurasi fallback. Skor tidak akan tersimpan ke Leaderboard luar.");
-                } catch (e) {
-                    return null;
-                }
+                 try { config = JSON.parse(EMPTY_CONFIG_FALLBACK); } catch (e) { return null; }
             }
             return config;
         }
 
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let firebaseReady = false;
+        let displayName = "Player"; // Default display name
+
         async function initializeFirebaseAndAuth() {
             const firebaseConfig = getFirebaseConfig();
-
-            if (!firebaseConfig) {
-                console.error("Firebase GAGAL: Config tidak tersedia.");
-                return;
-            }
-
+            if (!firebaseConfig) { console.error("Firebase GAGAL: Config tidak tersedia."); return; }
+            
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                await setPersistence(auth, browserSessionPersistence);
-                
-                if (initialAuthToken) { 
-                    await signInWithCustomToken(auth, initialAuthToken); 
-                } else { 
-                    await signInAnonymously(auth); 
-                }
+                if (initialAuthToken) { await signInWithCustomToken(auth, initialAuthToken); } else { await signInAnonymously(auth); }
 
-                onAuthStateChanged(auth, (user) => {
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-                        // HANYA SET firebaseReady = true JIKA BUKAN MENGGUNAKAN FALLBACK (untuk menghindari error write)
-                        if (firebaseConfig.apiKey !== "AIzaSyB-fallback") {
-                            firebaseReady = true;
-                            console.log("Firebase Siap. User ID:", userId.substring(0, 8) + '...');
-                        } else {
-                            console.warn("Firebase Config Invalid. Mode Submission Skor Dinonaktifkan.");
-                        }
+                        firebaseReady = true;
+                        await loadDisplayName();
+                        console.log("Firebase Siap untuk Leaderboard.");
                     } else {
                         userId = null;
                         firebaseReady = false;
@@ -212,32 +201,130 @@
             }
         }
         
-        /** SUBMIT SCORE KE FIREBASE (PUBLIC LEDGER) */
+        async function loadDisplayName() {
+            if (!db || !userId) return;
+            // Mengambil DisplayName dari profil pribadi user
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile');
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists() && docSnap.data().displayName) {
+                    displayName = docSnap.data().displayName;
+                }
+            } catch (e) {
+                console.warn("Could not load display name, using default 'Player'.", e);
+            }
+        }
+        
         async function submitFinalScore(score) {
             if (!firebaseReady || !userId || !db) {
-                console.warn("Skor tidak disimpan: Firebase tidak siap (API key invalid).");
+                console.warn("Skor tidak disimpan: Firebase tidak siap.");
                 return;
             }
             
             const scoreData = {
                 score: score,
                 userId: userId,
+                displayName: displayName, 
                 timestamp: Date.now(),
                 app: appId 
             };
             
             try {
+                // Menyimpan di Public Data Collection untuk Leaderboard
+                // Path: /artifacts/{appId}/public/data/leaderboard/{documentId}
                 const path = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-                // Menggunakan doc() tanpa argumen untuk membuat ID baru
+                // Menggunakan setDoc(doc(path)) untuk membuat ID unik otomatis
                 await setDoc(doc(path), scoreData); 
-                console.log(`Skor ${score} berhasil dikirim ke Public Ledger.`);
+                console.log(`Skor ${score} berhasil dikirim ke Leaderboard Internal.`);
             } catch (e) {
-                console.error("Error saat mengirim skor: ", e);
+                console.error("Error saat mengirim skor ke Leaderboard Internal: ", e);
             }
+        }
+        
+        initializeFirebaseAndAuth();
+
+        // ====================================================================
+        // --- FUNGSI MODAL ---
+        // ====================================================================
+
+        const modal = document.getElementById("messageModal");
+        window.showMessage = (title, message) => {
+            document.getElementById("modalTitle").innerText = title;
+            document.getElementById("modalMessage").innerText = message;
+            modal.style.display = 'flex';
+        }
+
+        window.hideMessage = () => {
+            modal.style.display = 'none';
         }
 
         // ====================================================================
-        // --- 2. LOGIKA GAME PAC-MAN CORE (Tidak Berubah) ---
+        // --- WEB3 TRANSACTION LOGIC (DI SINI) ---
+        // ====================================================================
+
+        const SOMNIA_RECEIVER_ADDRESS = "0x89798C0B7e9B2a7f0A812a32c324269e88C359D4"; // Ganti jika perlu
+        const SOMNIA_TX_AMOUNT = "0.01"; 
+        const startGameButton = document.getElementById("startOnchainBtn");
+
+        async function realSomniaTx(amountInEth) {
+            if (typeof window.ethers === 'undefined' || !window.ethereum) {
+                showMessage("Web3 Error", "Web3 (MetaMask/Ethers) tidak terdeteksi. Pastikan dompet terinstal dan terhubung.");
+                return { success: false, message: "Web3 provider not found." };
+            }
+            
+            try {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                const provider = new window.ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const amountWei = window.ethers.parseEther(amountInEth);
+
+                const tx = {
+                    to: SOMNIA_RECEIVER_ADDRESS,
+                    value: amountWei,
+                };
+
+                const txResponse = await signer.sendTransaction(tx);
+                showMessage("Transaksi Dikirim", `Transaksi berhasil dikirim. Hash: ${txResponse.hash}. Menunggu konfirmasi...`);
+                
+                const txReceipt = await txResponse.wait();
+
+                if (txReceipt && txReceipt.status === 1) {
+                    return { success: true, message: `Transaksi berhasil dikonfirmasi.` };
+                } else {
+                    return { success: false, message: "Transaksi gagal dikonfirmasi (Status 0)." };
+                }
+            } catch (error) {
+                console.error("Error saat transaksi on-chain:", error);
+                let message = "Transaksi dibatalkan oleh pengguna atau terjadi kesalahan jaringan.";
+                if (error.code === 4001) { message = "Transaksi dibatalkan oleh pengguna."; }
+                
+                return { success: false, message: message };
+            }
+        }
+
+        window.requestStartGameTransaction = async () => {
+            if (running) return;
+
+            startGameButton.disabled = true;
+            startGameButton.innerText = "Memproses Transaksi...";
+            
+            showMessage("Meminta Transaksi", `Meminta konfirmasi di dompet Anda untuk transfer ${SOMNIA_TX_AMOUNT} SOMI. Harap perhatikan notifikasi dompet Anda!`);
+            
+            const txResult = await realSomniaTx(SOMNIA_TX_AMOUNT);
+
+            if (txResult.success) {
+                startGameLoop();
+                showMessage("Transaksi Berhasil ✅", `${txResult.message} Game dimulai!`);
+            } else {
+                showMessage("Transaksi Gagal ❌", txResult.message);
+                startGameButton.disabled = false;
+                startGameButton.innerText = "START GAME (Bayar 0.01 SOMI)";
+            }
+        }
+        
+        // ====================================================================
+        // --- LOGIKA GAME PAC-MAN CORE ---
         // ====================================================================
 
         lucide.createIcons();
@@ -246,26 +333,15 @@
         let currentScore = 0; 
         const PLAYER_SPEED = 3.5; 
         const GHOST_SIZE = 20; 
-        const PLAYER_SIZE = 25; // Sudah di-fix
+        const PLAYER_SIZE = 25; 
         const CANDY_VALUE = 10; 
         
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
 
-        let x = 400; let y = 320; let vx = 0; let vy = 0; let currentDirection = 0; // Posisi awal sudah di-fix
-
-        // Fungsi Modal (Mengganti alert)
-        window.showMessage = (title, message) => {
-            document.getElementById("modalTitle").innerText = title;
-            document.getElementById("modalMessage").innerText = message;
-            document.getElementById("gameOverModal").style.display = 'flex';
-        }
-
-        window.hideMessage = () => {
-            document.getElementById("gameOverModal").style.display = 'none';
-        }
-
+        let x = 400; let y = 320; let vx = 0; let vy = 0; let currentDirection = 0; 
+        
         // Fungsi Kontrol Mobile
         window.setDirection = (direction) => {
             if (!running) return;
@@ -536,88 +612,7 @@
             
             scoreEl.innerText = currentScore;
         }
-
-        // ====================================================================
-        // --- 3. FUNGSI TRANSAKSI WEB3 (REAL TX) ---
-        // ====================================================================
         
-        // Alamat tujuan transfer (Placeholder, GANTI DENGAN ALAMAT TUJUAN SOMNIA YANG BENAR)
-        const SOMNIA_RECEIVER_ADDRESS = "0x0000000000000000000000000000000000000000";
-        const SOMNIA_TX_AMOUNT = "0.01"; // 0.01 SOMI
-
-        /**
-         * Mengirim transaksi 0.01 SOMI (Real TX)
-         */
-        async function realSomniaTx() {
-            // Memastikan ethers dimuat sebagai global object
-            if (typeof window.ethers === 'undefined' || typeof window.ethereum === 'undefined') {
-                showMessage("Dompet/Ethers Tidak Ditemukan", "Harap pastikan Anda menggunakan browser dengan dompet Web3 (seperti MetaMask) terinstal dan dimuat dengan benar.");
-                return false;
-            }
-
-            try {
-                // 1. Dapatkan akun
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                // FIX: Menggunakan window.ethers untuk mengatasi ReferenceError
-                const provider = new window.ethers.providers.Web3Provider(window.ethereum); 
-                const signer = provider.getSigner();
-
-                // 2. Konversi nilai ke Wei
-                const amountWei = window.ethers.utils.parseEther(SOMNIA_TX_AMOUNT);
-                
-                // 3. Buat dan kirim transaksi
-                const tx = {
-                    to: SOMNIA_RECEIVER_ADDRESS,
-                    value: amountWei,
-                };
-
-                showMessage("Meminta Transaksi", `Menunggu konfirmasi di dompet Anda untuk transfer ${SOMNIA_TX_AMOUNT} SOMI...`);
-                
-                const transactionResponse = await signer.sendTransaction(tx);
-                
-                showMessage("Transaksi Dikirim", `Transaksi berhasil dikirim. Menunggu konfirmasi... Hash: ${transactionResponse.hash.substring(0, 10)}...`);
-
-                // 4. Tunggu konfirmasi 
-                await transactionResponse.wait();
-                
-                console.log("[SOMNIA MAINNET] Transaksi berhasil dikonfirmasi.");
-                return true;
-
-            } catch (error) {
-                console.error("[SOMNIA MAINNET] Transaksi GAGAL:", error);
-                
-                let errorMessage = "Transaksi dibatalkan atau terjadi kegagalan jaringan.";
-                if (error.code === 4001) {
-                    errorMessage = "Transaksi dibatalkan oleh pengguna (User Rejected Transaction).";
-                } else if (error.message && error.message.includes("insufficient funds")) {
-                     errorMessage = "Dana SOMI tidak mencukupi di dompet Anda.";
-                }
-
-                showMessage("Transaksi Gagal", errorMessage);
-                return false;
-            }
-        }
-
-        /** Dipanggil saat tombol "START GAME" ditekan. */
-        window.startGameTransaction = async () => {
-            if (running) return;
-
-            startGameButton.disabled = true;
-            startGameButton.innerText = "Memproses Transaksi SOMI...";
-
-            const txSuccess = await realSomniaTx(); 
-
-            if (txSuccess) {
-                startGameLoop();
-                // Setelah game dimulai, modal ditutup.
-                document.getElementById("gameOverModal").style.display = 'none'; 
-            } else {
-                // Aktifkan kembali tombol jika transaksi gagal
-                startGameButton.disabled = false;
-                startGameButton.innerText = "START GAME (Bayar 0.01 SOMI)";
-            }
-        }
-
         /** Memulai Game Loop */
         function startGameLoop() {
             running = true;
@@ -632,7 +627,8 @@
             x = 400; y = 320; vx = 0; vy = 0; currentDirection = 0;
             
             scoreEl.innerText = currentScore; 
-            document.getElementById("startOnchainBtn").innerText = "GAME RUNNING...";
+            startGameButton.innerText = "GAME RUNNING...";
+            startGameButton.disabled = true;
         }
 
         /** Dipanggil ketika game over/win. */
@@ -655,13 +651,6 @@
             startGameButton.innerText = "START GAME (Bayar 0.01 SOMI)";
         }
 
-        /** Navigasi kembali ke menu (simulasi reload). */
-        window.backMenu = () => {
-            window.location.reload();
-        }
-
-        // --- INISIASI APLIKASI: Mulai Auth Firebase dan Game Loop ---
-        initializeFirebaseAndAuth();
         window.onload = loop; 
     </script>
 </body>
