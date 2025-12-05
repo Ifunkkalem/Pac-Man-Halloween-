@@ -118,8 +118,8 @@
 
     let db = null;
     let auth = null;
-    let userId = null; // Tetap diperlukan untuk Auth/Security Rules
-    let walletAddress = null;
+    let userId = null; // Dipertahankan untuk kebutuhan Auth/Security Rules Firebase internal
+    let walletAddress = null; // ID publik yang diinginkan
     let firebaseReady = false;
     let nameLoaded = false;
     let firebaseError = false; 
@@ -138,7 +138,7 @@
 
     function updateUI() {
         const connected = walletAddress !== null;
-        const nameValid = displayNameInput.value.length > 0 && displayNameInput.value.length <= 12;
+        const nameValid = displayNameInput.value.trim().length > 0 && displayNameInput.value.trim().length <= 12;
         const isReady = firebaseReady && nameLoaded;
         
         // 1. Update Status Display
@@ -149,7 +149,7 @@
             walletStatusEl.innerHTML = `Status: Connecting to Firebase... <br> Wallet: ${formatWallet(walletAddress)}`;
         } else {
              // Menghilangkan display userId, hanya fokus pada Wallet
-             walletStatusEl.innerHTML = `Wallet Status: <span style="color: #ffb703;">Connected</span> <br> Address: ${formatWallet(walletAddress)}
+             walletStatusEl.innerHTML = `Wallet Status: <span style="color: #ffb703;">Connected</span> <br> Address: ${walletAddress || 'Harap Hubungkan Wallet'}
             `;
         }
 
@@ -180,6 +180,7 @@
             return;
         }
 
+        // Ambil data profil pribadi (berdasarkan userId internal)
         const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile');
         try {
             const docSnap = await getDoc(docRef);
@@ -187,7 +188,8 @@
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 name = data.displayName || '';
-                walletAddress = data.wallet || null;
+                // Wallet Address adalah ID publik yang sebenarnya
+                walletAddress = data.wallet || null; 
             }
             displayNameInput.value = name;
             nameLoaded = true;
@@ -216,7 +218,7 @@
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    userId = user.uid;
+                    userId = user.uid; // Simpan UID internal
                     firebaseReady = true;
                     connectWalletBtn.disabled = false;
                     loadUserData();
@@ -248,7 +250,7 @@
 
         try {
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            walletAddress = accounts[0];
+            walletAddress = accounts[0]; // Set Wallet Address sebagai ID publik
             menuTxStatusEl.textContent = `Wallet terhubung: ${formatWallet(walletAddress)}`;
             
             // Simpan wallet address ke private profile Firestore 
@@ -295,7 +297,7 @@
                 wallet: walletAddress,
                 lastUpdate: Date.now()
             }, { merge: true });
-            menuTxStatusEl.textContent = "Nama berhasil disimpan ke Database Global!";
+            menuTxStatusEl.textContent = "Nama berhasil disimpan!";
             nameLoaded = true;
         } catch (e) {
             console.error("Error saving name:", e);
