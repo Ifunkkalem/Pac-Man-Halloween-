@@ -1,26 +1,101 @@
 /* game_logic.js */
 // File ini hanya menangani rendering dan state game.
-// PERUBAHAN UTAMA: Implementasi Permen (Candy) sebagai poin, Kondisi Menang (Win), dan Tampilan Ghost bertema Halloween.
+// PERUBAHAN UTAMA: Labirin yang jauh lebih rumit untuk meningkatkan tantangan dan strategi.
 
 let running = false;
 let currentScore = 0; 
-const PLAYER_SPEED = 4; // Kecepatan pergerakan pemain
-const GHOST_SIZE = 20; // Radius hantu
-const PLAYER_SIZE = 30; // Radius Pacman
-const CANDY_VALUE = 10; // Nilai skor per permen
+const PLAYER_SPEED = 3.5; 
+const GHOST_SIZE = 20; 
+const PLAYER_SIZE = 30; 
+const CANDY_VALUE = 10; 
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 
 // Player State
-let x = 400; 
+let x = 400; // Posisi awal di tengah
 let y = 300; 
 let vx = 0; 
 let vy = 0; 
 let currentDirection = 0; 
 
-// --- GHOST MANAGEMENT (Tidak Berubah Logika, hanya tampilan) ---
+// --- WALL MANAGEMENT (LABYRINTH KOMPLEKS) ---
+// Definisi dinding: { x, y, width, height }
+const WALL_THICKNESS = 20;
+
+const walls = [
+    // 1. Perimeter (Batas Luar)
+    { x: 0, y: 0, width: canvas.width, height: WALL_THICKNESS }, // Atas
+    { x: 0, y: canvas.height - WALL_THICKNESS, width: canvas.width, height: WALL_THICKNESS }, // Bawah
+    { x: 0, y: 0, width: WALL_THICKNESS, height: canvas.height }, // Kiri
+    { x: canvas.width - WALL_THICKNESS, y: 0, width: WALL_THICKNESS, height: canvas.height }, // Kanan
+    
+    // 2. Struktur Internal (Menciptakan Koridor)
+    // T-Blocks
+    { x: 100, y: 100, width: 20, height: 100 }, 
+    { x: 100, y: 180, width: 100, height: 20 }, 
+    
+    { x: 500, y: 100, width: 20, height: 100 }, 
+    { x: 500, y: 100, width: 100, height: 20 },
+    
+    // Blok Horizontal Panjang
+    { x: 100, y: 380, width: 200, height: 20 },
+    { x: 500, y: 380, width: 200, height: 20 },
+
+    // Pusat Labirin (Ruangan Aman/Jalur Silang)
+    { x: 300, y: 280, width: 200, height: 20 },
+    { x: 300, y: 300, width: 20, height: 100 },
+    { x: 480, y: 300, width: 20, height: 100 },
+
+    // Sudut Bawah
+    { x: 100, y: 500, width: 100, height: 20 },
+    { x: 600, y: 500, width: 100, height: 20 },
+    { x: 180, y: 400, width: 20, height: 100 },
+    { x: 600, y: 400, width: 20, height: 100 },
+];
+
+/**
+ * Menggambar semua dinding (Labirin).
+ */
+function drawWalls() {
+    ctx.fillStyle = "rgba(123, 0, 255, 0.8)"; 
+    for (const wall of walls) {
+        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+    }
+}
+
+/**
+ * Cek tabrakan AABB antara dua kotak.
+ */
+function checkAABBCollision(rect1, rect2) {
+    return rect1.x < rect2.x + rect2.width &&
+           rect1.x + rect1.width > rect2.x &&
+           rect1.y < rect2.y + rect2.height &&
+           rect1.y + rect1.height > rect2.y;
+}
+
+/**
+ * Mencegah Player menembus dinding.
+ */
+function checkPlayerWallCollision(newX, newY) {
+    const playerRect = {
+        x: newX - PLAYER_SIZE,
+        y: newY - PLAYER_SIZE,
+        width: 2 * PLAYER_SIZE,
+        height: 2 * PLAYER_SIZE
+    };
+
+    for (const wall of walls) {
+        if (checkAABBCollision(playerRect, wall)) {
+            return true; // Tabrakan
+        }
+    }
+    return false; // Aman
+}
+
+
+// --- GHOST MANAGEMENT (Logika tidak berubah, hanya posisi awal) ---
 let ghosts = [];
 
 class Ghost {
@@ -37,13 +112,16 @@ class Ghost {
     }
 }
 
-// Logika pergerakan hantu (moveGhost dan checkCollision tidak berubah)
+/**
+ * Menghitung pergerakan hantu, mencegahnya menembus dinding.
+ */
 function moveGhost(ghost) {
     let targetX = x;
     let targetY = y;
     let dx = 0;
     let dy = 0;
 
+    // Menghitung arah ke target
     if (ghost.behavior === "chase" || ghost.behavior === "flee") {
         dx = targetX - ghost.x;
         dy = targetY - ghost.y;
@@ -66,34 +144,50 @@ function moveGhost(ghost) {
             ghost.randomMoveCooldown = 60; 
         }
     }
-
-    ghost.x += ghost.vx;
-    ghost.y += ghost.vy;
-
-    if (ghost.x - ghost.radius < 0 || ghost.x + ghost.radius > canvas.width) {
-        ghost.vx *= -1;
-        ghost.x = Math.max(ghost.radius, Math.min(ghost.x, canvas.width - ghost.radius));
+    
+    // --- PENGECEKAN TABRAKAN DINDING UNTUK GHOST ---
+    const newX = ghost.x + ghost.vx;
+    const newY = ghost.y + ghost.vy;
+    
+    const ghostRect = {
+        x: newX - ghost.radius,
+        y: newY - ghost.radius,
+        width: 2 * ghost.radius,
+        height: 2 * ghost.radius
+    };
+    
+    let collided = false;
+    for (const wall of walls) {
+        if (checkAABBCollision(ghostRect, wall)) {
+            collided = true;
+            
+            // Balik arah (dan paksa arah baru untuk Random)
+            if (ghost.vx !== 0) ghost.vx *= -1;
+            if (ghost.vy !== 0) ghost.vy *= -1;
+            
+            if (ghost.behavior === "random") {
+                ghost.randomMoveCooldown = 0; 
+            }
+            break;
+        }
     }
-    if (ghost.y - ghost.radius < 0 || ghost.y + ghost.radius > canvas.height) {
-        ghost.vy *= -1;
-        ghost.y = Math.max(ghost.radius, Math.min(ghost.y, canvas.height - ghost.radius));
+
+    if (!collided) {
+        ghost.x = newX;
+        ghost.y = newY;
     }
 }
 
 /**
- * MENGGAMBAR HANTU (Bentuk Halloween)
+ * Menggambar Hantu (Tampilan Halloween) - (Tidak Berubah)
  */
 function drawGhost(ghost) {
     const r = ghost.radius;
-    const bodyHeight = 1.5 * r;
-
+    
     ctx.fillStyle = ghost.color;
     ctx.beginPath();
-    // Kepala (Arc)
     ctx.arc(ghost.x, ghost.y - r / 2, r, Math.PI, 0, false);
-    // Badan (Garis lurus)
     ctx.lineTo(ghost.x + r, ghost.y + r);
-    // Kaki/Bawah bergelombang
     ctx.lineTo(ghost.x + r * 0.75, ghost.y + r - 5);
     ctx.lineTo(ghost.x + r * 0.5, ghost.y + r);
     ctx.lineTo(ghost.x + r * 0.25, ghost.y + r - 5);
@@ -102,18 +196,15 @@ function drawGhost(ghost) {
     ctx.lineTo(ghost.x - r * 0.5, ghost.y + r);
     ctx.lineTo(ghost.x - r * 0.75, ghost.y + r - 5);
     ctx.lineTo(ghost.x - r, ghost.y + r);
-    
     ctx.closePath();
     ctx.fill();
 
-    // Mata seram
     ctx.fillStyle = "white";
     ctx.beginPath();
     ctx.arc(ghost.x - r / 2, ghost.y - r / 2, 4, 0, 2 * Math.PI);
     ctx.arc(ghost.x + r / 2, ghost.y - r / 2, 4, 0, 2 * Math.PI);
     ctx.fill();
     
-    // Iris mata (agar terlihat mengejar/menghindar)
     ctx.fillStyle = "black";
     const eyeDx = (x - ghost.x) / 10;
     const eyeDy = (y - ghost.y) / 10;
@@ -135,26 +226,55 @@ function checkCollision(ghost) {
 let candy = [];
 
 /**
- * Menyusun permen di canvas dalam bentuk grid sederhana.
+ * Menyusun permen di canvas. Memastikan permen TIDAK berada di dalam dinding.
  */
 function setupCandy() {
     candy = [];
-    const rows = 10;
-    const cols = 15;
-    const paddingX = 50;
-    const paddingY = 50;
+    const rows = 12; // Lebih banyak baris
+    const cols = 20; // Lebih banyak kolom
+    const paddingX = 40;
+    const paddingY = 40;
     const spacingX = (canvas.width - 2 * paddingX) / (cols - 1);
     const spacingY = (canvas.height - 2 * paddingY) / (rows - 1);
+    
+    const candyRectSize = 10; 
 
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-            // Hindari menaruh permen di tengah (area start player)
-            if (r > 3 && r < 6 && c > 5 && c < 9) continue; 
+            const candyX = paddingX + c * spacingX;
+            const candyY = paddingY + r * spacingY;
             
-            candy.push({
-                x: paddingX + c * spacingX,
-                y: paddingY + r * spacingY,
-            });
+            // Hindari menaruh permen di area start player
+            if (Math.abs(candyX - 400) < 60 && Math.abs(candyY - 300) < 60) continue; 
+            
+            // Cek apakah permen bertabrakan dengan DINDING
+            let isInsideWall = false;
+            const candyRect = {
+                x: candyX - candyRectSize / 2, 
+                y: candyY - candyRectSize / 2, 
+                width: candyRectSize, 
+                height: candyRectSize
+            };
+
+            for (const wall of walls) {
+                // Beri sedikit margin agar permen tidak terlalu dekat dengan dinding
+                const collisionMargin = 5; 
+                const wallCheck = {
+                    x: wall.x - collisionMargin,
+                    y: wall.y - collisionMargin,
+                    width: wall.width + 2 * collisionMargin,
+                    height: wall.height + 2 * collisionMargin
+                };
+                
+                if (checkAABBCollision(candyRect, wallCheck)) {
+                    isInsideWall = true;
+                    break;
+                }
+            }
+
+            if (!isInsideWall) {
+                candy.push({ x: candyX, y: candyY });
+            }
         }
     }
 }
@@ -166,14 +286,12 @@ function drawCandy() {
     ctx.fillStyle = "orange";
     for (const item of candy) {
         const radius = 6;
-        // Gambar bentuk Labu (Pumpkin) sederhana
         ctx.beginPath();
-        // Lingkaran utama (Labu)
         ctx.arc(item.x, item.y, radius, 0, 2 * Math.PI);
         ctx.fill();
-        // Batang (stem)
         ctx.fillStyle = "green";
         ctx.fillRect(item.x - 1, item.y - radius - 3, 2, 3);
+        ctx.fillStyle = "orange"; 
     }
 }
 
@@ -187,14 +305,12 @@ function checkCandyCollection() {
         const dy = y - item.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Jika jarak kurang dari radius Pac-Man, maka permen terkumpul
         if (distance < PLAYER_SIZE) {
             currentScore += CANDY_VALUE;
-            candy.splice(i, 1); // Hapus permen yang terkumpul
+            candy.splice(i, 1); 
 
-            // Cek Kondisi Menang
             if (candy.length === 0) {
-                endGame(true); // Panggil endGame dengan status menang
+                endGame(true); 
                 return true;
             }
         }
@@ -203,7 +319,7 @@ function checkCandyCollection() {
 }
 
 
-// --- PLAYER CONTROL & DRAW FUNCTIONS (Tidak Berubah) ---
+// --- PLAYER CONTROL & DRAW FUNCTIONS ---
 
 function handleKeyDown(event) {
     if (!running) return;
@@ -284,22 +400,39 @@ function loop() {
         return;
     }
     
-    // 1. GAMBAR PERMEN
-    drawCandy();
+    // 1. GAMBAR DINDING (LABIRIN)
+    drawWalls();
 
     // 2. UPDATE POSISI PLAYER & BATAS
-    x += vx;
-    y += vy;
+    const newX = x + vx;
+    const newY = y + vy;
+
+    // Cek tabrakan dinding sebelum bergerak (X)
+    if (!checkPlayerWallCollision(newX, y)) {
+        x = newX;
+    } else {
+        vx = 0; // Hentikan pergerakan X jika menabrak
+    }
     
-    if (x - PLAYER_SIZE < 0) { x = PLAYER_SIZE; vx = 0; }
-    if (x + PLAYER_SIZE > canvas.width) { x = canvas.width - PLAYER_SIZE; vx = 0; }
-    if (y - PLAYER_SIZE < 0) { y = PLAYER_SIZE; vy = 0; }
-    if (y + PLAYER_SIZE > canvas.height) { y = canvas.height - PLAYER_SIZE; vy = 0; }
+    // Cek tabrakan dinding sebelum bergerak (Y)
+    if (!checkPlayerWallCollision(x, newY)) {
+        y = newY;
+    } else {
+        vy = 0; // Hentikan pergerakan Y jika menabrak
+    }
+
+    // Batas Dinding Canvas (Perimeter)
+    const perimeterMargin = WALL_THICKNESS + PLAYER_SIZE;
+    if (x < perimeterMargin) { x = perimeterMargin; vx = 0; }
+    if (x > canvas.width - perimeterMargin) { x = canvas.width - perimeterMargin; vx = 0; }
+    if (y < perimeterMargin) { y = perimeterMargin; vy = 0; }
+    if (y > canvas.height - perimeterMargin) { y = canvas.height - perimeterMargin; vy = 0; }
     
     // 3. GAMBAR PACMAN
     drawPacman();
     
-    // 4. CEK PENGUMPULAN PERMEN
+    // 4. GAMBAR DAN CEK PENGUMPULAN PERMEN
+    drawCandy();
     checkCandyCollection();
     
     // 5. UPDATE DAN GAMBAR GHOSTS + CEK COLLISION
@@ -315,13 +448,6 @@ function loop() {
     
     // 6. Update Score UI
     scoreEl.innerText = currentScore;
-
-    // Logika Game Over DUMMY (Jika pemain berhasil kabur terlalu lama tanpa mengumpulkan permen, skor mencapai 5000)
-    // Ini adalah kondisi gagal jika player hanya menghindar dan tidak bermain.
-    if (currentScore >= 5000) { 
-        endGame(false);
-        return;
-    }
 }
 
 /**
@@ -332,17 +458,17 @@ function startGameLoop() {
     running = true;
     currentScore = 0;
     
-    // INISIASI 3 GHOST
+    // INISIASI 3 GHOST (Dimulai dari sudut luar)
     ghosts = [
-        new Ghost(50, 50, "#FF0000", "chase", 2.5),       // Merah (Chaser)
-        new Ghost(750, 50, "#00FFFF", "random", 2.0),    // Cyan (Randomizer)
-        new Ghost(50, 550, "#FF69B4", "flee", 1.5)       // Pink (Evader)
+        new Ghost(40, 40, "#FF0000", "chase", 2.0),       // Merah (Chaser)
+        new Ghost(760, 40, "#00FFFF", "random", 2.0),    // Cyan (Randomizer)
+        new Ghost(760, 560, "#FF69B4", "flee", 1.5)       // Pink (Evader)
     ];
     
     // SETUP CANDY (Permen)
     setupCandy();
 
-    // Reset posisi dan kecepatan player
+    // Reset posisi dan kecepatan player (Tengah)
     x = 400; 
     y = 300;
     vx = 0;
@@ -368,7 +494,6 @@ function endGame(isWin) {
         alert(`GAME OVER! Final Score: ${currentScore}`);
     }
     
-    // Panggil fungsi submitFinalScore dari web3_game.js
     if (typeof submitFinalScore === 'function') {
         submitFinalScore(currentScore); 
     } else {
