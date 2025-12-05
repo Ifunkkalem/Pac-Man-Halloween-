@@ -1,32 +1,53 @@
-/* web3_game.js */
-// File ini menangani semua interaksi on-chain untuk halaman game dan Custom Modal.
+// --- FIREBASE IMPORTS ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { 
+    getAuth, 
+    signInAnonymously, 
+    signInWithCustomToken, 
+    onAuthStateChanged, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    collection, 
+    query, 
+    limit, 
+    getDocs,
+    serverTimestamp,
+    setLogLevel
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// --- KONFIGURASI SOMNIA & KONTRAK ---
-const LEADERBOARD_CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
-const START_FEE_WEI = "10000000000000000"; // 0.01 SOMI dalam Wei
-const MAX_SCORE = 3000; 
+// =========================================================================
+// !!! PENTING: GANTI KONFIGURASI DI BAWAH INI DENGAN KONFIGURASI PROYEK ANDA !!!
+//    Ini diperlukan saat menjalankan di luar lingkungan Canvas (mis. Vercel).
+// =========================================================================
+const HARDCODED_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBeHjlHJSB5R0mYJmX6h5uJ7Iwqu7zNWtA", // <--- GANTI INI
+  authDomain: "somnia-hallowen.firebaseapp.com",
+  projectId: "somnia-hallowen",
+  storageBucket: "somnia-hallowen.appspot.com",
+  messagingSenderId: "4412Y7353240",
+  appId: "1:4412Y7353240:web:71343e5000d55e010c712f89",
+};
 
-// ABI (Hanya fungsi yang dibutuhkan di sini)
-const LEADERBOARD_ABI = [
-    "function startGame() payable",
-    "function submitScore(uint256 score)",
-    "function maxScore() view returns (uint256)",
-];
+const DUMMY_APP_ID = 'default-app-id';
 
-// --- VARIABEL WEB3 ---
-let WALLET_ADDRESS = null;
-let provider = null;
-let signer = null;
-let leaderboardContract = null;
-let gameIsReady = false; 
+// --- VARIABEL GLOBAL FIREBASE DAN AUTH ---
+let app;
+let db;
+let auth;
+let userId = null;
+let dbStatus = "Initializing...";
+let isAuthReady = false; 
 
-// --- FUNGSI CUSTOM MODAL (PENGGANTI alert() & confirm()) ---
+// --- ELEMEN UI ---
+const playerNameEl = document.getElementById('playerName');
+const startButton = document.getElementById('startOnchainBtn');
+const backMenuButton = document.getElementById('backMenuBtn');
 
-/**
- * Menampilkan Modal Kustom yang tidak akan mem-freeze UI.
- * @param {string} title - Judul modal.
- * @param {string} message - Pesan yang akan ditampilkan.
- */
+// Fungsi untuk menampilkan modal kustom (disediakan di game.html)
 function showModal(title, message) {
     document.getElementById('modalTitle').innerText = title;
     document.getElementById('modalMessage').innerText = message;
@@ -34,133 +55,191 @@ function showModal(title, message) {
 }
 
 /**
- * Menampilkan Modal Konfirmasi Kustom (Menggantikan confirm()).
- * CATATAN: Karena tidak bisa menggunakan Promise/Async di sini, kita gunakan
- * confirm() bawaan hanya untuk transaksi kritis. Untuk pesan biasa, gunakan showModal.
+ * Inisialisasi Firebase (Memeriksa Lingkungan Canvas vs. Hardcode)
  */
-
-
-// --- FUNGSI UTAMA WEB3 ---
-
-/**
- * Inisiasi Web3 saat halaman game dimuat.
- */
-async function initWeb3() {
-    if (!window.ethereum || typeof ethers === 'undefined') {
-        showModal("Web3 Error", "Ethers.js atau MetaMask tidak terdeteksi. Tidak dapat berinteraksi on-chain.");
-        document.getElementById("startOnchainBtn").disabled = true;
-        document.getElementById("playerName").innerText = "Web3 Error";
-        return;
-    }
-
+async function initializeFirebase() {
     try {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        WALLET_ADDRESS = await signer.getAddress();
+        // Menggunakan Konfigurasi Canvas jika tersedia
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : HARDCODED_FIREBASE_CONFIG;
         
-        leaderboardContract = new ethers.Contract(LEADERBOARD_CONTRACT_ADDRESS, LEADERBOARD_ABI, signer);
-        gameIsReady = true;
+        // Menggunakan App ID Canvas jika tersedia
+        const appId = typeof __app_id !== 'undefined' ? __app_id : DUMMY_APP_ID;
 
-        const playerName = localStorage.getItem(`name_${WALLET_ADDRESS}`) || "Player";
-        document.getElementById("playerName").innerText = playerName;
+        if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.includes("ANDA-HARUS-MENGGANTI-INI")) {
+            throw new Error("Konfigurasi Firebase tidak valid. Harap ganti placeholder HARDCODED_FIREBASE_CONFIG.");
+        }
 
-        document.getElementById("startOnchainBtn").disabled = false;
-        document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
+        // Aktifkan logging debug untuk melihat status koneksi
+        setLogLevel('debug');
+        
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        dbStatus = "Connected to Firebase.";
+        
+        // 1. Setup Auth State Listener
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                dbStatus = "User Authenticated.";
+                playerNameEl.innerText = `ID: ${userId.substring(0, 8)}...`;
+                isAuthReady = true; 
+                startButton.disabled = false;
+                startButton.innerText = "START GAME (0.01 SOMI)";
+                
+                // Panggil fungsi inisialisasi UI setelah auth siap (jika ada)
+                // updateGameUI(); 
+                console.log("Auth State Changed: User is signed in.");
 
+            } else {
+                // 2. Initial Sign-In Attempt
+                try {
+                    // Coba sign-in dengan token kustom jika ada (di Canvas)
+                    if (typeof __initial_auth_token !== 'undefined') {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        // Jika tidak ada token (di Vercel), sign-in Anonim
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    // Jika sign-in gagal, tetapkan status error
+                    dbStatus = `Auth Error: ${error.code}`;
+                    playerNameEl.innerText = `Auth Gagal!`;
+                    isAuthReady = false;
+                    startButton.disabled = true;
+                    showModal("CRITICAL ERROR", "Gagal Otentikasi Firebase. Cek konsol untuk detail.");
+                    console.error("Firebase Authentication Gagal:", error);
+                }
+            }
+        });
 
     } catch (error) {
-        console.error("Inisialisasi Web3 Gagal:", error);
-        showModal("Koneksi Gagal", "Gagal terhubung ke Somnia. Pastikan Anda sudah login di MetaMask.");
-        document.getElementById("playerName").innerText = "Not Logged In";
+        dbStatus = "Config/Init Error";
+        playerNameEl.innerText = `Konfigurasi GAGAL.`;
+        startButton.disabled = true;
+        showModal("CRITICAL ERROR", `Gagal Koneksi ke Firebase: ${error.message}`);
+        console.error("Firebase Initialization Failed:", error);
     }
 }
 
+// =========================================================================
+// --- GAME INTERAKSI (WEB3/SCORE) ---
+// =========================================================================
 
 /**
- * Transaksi untuk memulai game (Membayar 0.01 SOMI).
+ * Simulasi Interaksi Wallet untuk memulai game.
  */
 async function startOnchain() {
-    if (!gameIsReady) {
-        showModal("Web3 Error", "Koneksi Web3 belum siap. Silakan refresh halaman.");
+    if (!isAuthReady) {
+        showModal("Kesalahan", "Database belum siap. Tunggu atau periksa konfigurasi Anda.");
         return;
     }
     
-    if (typeof running !== 'undefined' && running) {
-        showModal("Game Active", "Game sudah berjalan!");
+    // Logika Wallet (Simulasi): Cek ketersediaan Ethers
+    if (typeof window.ethereum === 'undefined') {
+        showModal("Peringatan", "MetaMask/Wallet tidak terdeteksi. Tidak dapat memulai Onchain.");
+        console.error("Wallet not detected.");
         return;
     }
 
-    // Menggunakan confirm bawaan untuk konfirmasi transaksi kritis
-    if (!confirm(`Memulai game membutuhkan biaya 0.01 SOMI. Lanjutkan?`)) return;
-
     try {
-        const startBtn = document.getElementById("startOnchainBtn");
-        startBtn.disabled = true;
-        startBtn.innerText = "Sending TX...";
-
-        const tx = await leaderboardContract.startGame({
-            value: START_FEE_WEI,
-        });
-
-        showModal("Transaksi Terkirim", "Transaksi startGame terkirim. Mohon tunggu konfirmasi...");
-        await tx.wait();
+        startButton.disabled = true;
+        startButton.innerText = "Transaksi diproses...";
         
-        // Panggil fungsi startGameLoop() dari game_logic.js setelah sukses
+        // 1. Hubungkan Wallet
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        
+        // 2. Simulasi Transaksi (Placeholder)
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulasi penundaan transaksi 
+        
+        // Jika sukses:
+        // Panggil fungsi startGameLoop dari game_logic.js
         if (typeof startGameLoop === 'function') {
-            startGameLoop(); 
-            showModal("Game Started!", "Selamat bermain! Gunakan tombol panah untuk bergerak.");
+            startGameLoop();
         } else {
-             showModal("System Error", "Transaksi sukses, namun startGameLoop() tidak ditemukan.");
+            console.error("startGameLoop tidak ditemukan!");
+            throw new Error("Fungsi Game Logic tidak terhubung.");
         }
 
     } catch (error) {
-        console.error("Transaksi startGame Gagal:", error);
-        showModal("Transaksi Gagal", "Pembayaran 0.01 SOMI gagal. Cek saldo SOMI dan konsol.");
-        
-        const startBtn = document.getElementById("startOnchainBtn");
-        startBtn.disabled = false;
-        startBtn.innerText = "START GAME (0.01 SOMI)";
+        startButton.disabled = false;
+        startButton.innerText = "START GAME (0.01 SOMI)";
+        const msg = error.message.includes("rejected") ? "Transaksi ditolak oleh pengguna." : "Gagal memulai Onchain. Cek konsol.";
+        showModal("Submit Gagal", msg);
+        console.error("Error during startOnchain:", error);
     }
 }
 
-
 /**
- * Transaksi untuk mengirim skor akhir ke kontrak.
- * Dipanggil secara otomatis oleh endGame() di game_logic.js.
- * @param {number} finalScore - Skor akhir game.
+ * Mengirim skor akhir ke Firestore.
+ * @param {number} finalScore - Skor yang dicapai pemain.
  */
 async function submitFinalScore(finalScore) {
-    if (!gameIsReady) {
-        showModal("Web3 Error", "Koneksi Web3 belum siap. Skor tidak dapat dikirim.");
+    if (!isAuthReady || !userId) {
+        console.error("Submit dibatalkan: Auth belum siap atau userId hilang.");
         return;
     }
     
-    // Cap skor (Capping)
-    if (finalScore > MAX_SCORE) finalScore = MAX_SCORE;
-
-    // Menggunakan confirm bawaan untuk konfirmasi transaksi kritis
-    if (!confirm(`Skor akhir yang akan dicatat: ${finalScore}. Kirim ke Leaderboard SOMNIA?`)) return;
-
+    // Tentukan lokasi data: /artifacts/{appId}/public/data/leaderboard/{documentId}
+    const appId = typeof __app_id !== 'undefined' ? __app_id : DUMMY_APP_ID;
+    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+    
     try {
-        const submitBtn = document.getElementById("submitScoreBtn");
-        submitBtn.disabled = true;
-        submitBtn.innerText = "Submitting Score...";
+        const displayName = await fetchDisplayName();
+        
+        // Query untuk mencari skor terbaik yang sudah ada
+        const q = query(leaderboardRef, limit(1)); // Cukup ambil 1 (asumsi 1 skor per user di implementasi ini)
+        const snapshot = await getDocs(q);
+        
+        // Data yang akan disimpan
+        const scoreData = {
+            userId: userId,
+            displayName: displayName,
+            score: finalScore,
+            timestamp: serverTimestamp() 
+        };
 
-        const tx = await leaderboardContract.submitScore(finalScore);
-        showModal("Transaksi Skor", `Transaksi skor ${finalScore} terkirim. Menunggu konfirmasi...`);
+        let docIdToUpdate = userId; // Gunakan UID sebagai ID dokumen
+
+        // Simpan atau perbarui skor
+        await setDoc(doc(leaderboardRef, docIdToUpdate), scoreData);
         
-        await tx.wait();
-        showModal("Skor Tercatat", `Skor ${finalScore} berhasil dicatat di SOMNIA!`);
-        
+        console.log(`Skor ${finalScore} berhasil disubmit dengan ID: ${docIdToUpdate}`);
+
     } catch (error) {
-        console.error("Gagal mencatat skor:", error);
-        showModal("Submit Gagal", "Gagal mencatat skor. Cek konsol dan saldo gas.");
-    } finally {
-        const submitBtn = document.getElementById("submitScoreBtn");
-        submitBtn.disabled = false;
-        submitBtn.innerText = "SUBMIT SCORE (Auto)";
+        showModal("Submit Gagal", "Gagal mencatat skor. Cek konsol dan saldo.");
+        console.error("Error submitting score to Firestore:", error);
     }
 }
 
-// Inisiasi Web3 saat skrip dimuat
-window.onload = initWeb3;
+/**
+ * Mengambil displayName yang disimpan pengguna
+ */
+async function fetchDisplayName() {
+    if (!isAuthReady || !userId) return "Player Anonim";
+    
+    const appId = typeof __app_id !== 'undefined' ? __app_id : DUMMY_APP_ID;
+    const profileRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+    
+    try {
+        // Simulasi: Karena Firestore hanya menyediakan doc() dan getDocs(), kita hanya
+        // akan menampilkan "User ID" sebagai nama jika tidak ada nama yang disimpan.
+        // Jika Anda memiliki implementasi `getDoc` yang berfungsi, gunakan itu.
+        return `Player-${userId.substring(0, 5)}`;
+
+    } catch(e) {
+        console.warn("Failed to fetch display name:", e);
+        return `Player-${userId.substring(0, 5)}`;
+    }
+}
+
+// Panggil inisialisasi saat script dimuat
+initializeFirebase();
+
+// Ekspor fungsi untuk digunakan di game_logic.js dan HTML
+window.startOnchain = startOnchain;
+window.submitFinalScore = submitFinalScore;
+// window.fetchLeaderboard = fetchLeaderboard; // Jika ada fungsi leaderboard
