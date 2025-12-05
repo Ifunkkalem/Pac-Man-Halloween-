@@ -1,245 +1,250 @@
-// --- FIREBASE IMPORTS ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { 
-    getAuth, 
-    signInAnonymously, 
-    signInWithCustomToken, 
-    onAuthStateChanged, 
-    signOut 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    collection, 
-    query, 
-    limit, 
-    getDocs,
-    serverTimestamp,
-    setLogLevel
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot, collection, query, limit, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// =========================================================================
-// !!! PENTING: GANTI KONFIGURASI DI BAWAH INI DENGAN KONFIGURASI PROYEK ANDA !!!
-//    Ini diperlukan saat menjalankan di luar lingkungan Canvas (mis. Vercel).
-// =========================================================================
-const HARDCODED_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBeHjlHJSB5R0mYJmX6h5uJ7Iwqu7zNWtA", // <--- GANTI INI
-  authDomain: "somnia-hallowen.firebaseapp.com",
-  projectId: "somnia-hallowen",
-  storageBucket: "somnia-hallowen.appspot.com",
-  messagingSenderId: "4412Y7353240",
-  appId: "1:4412Y7353240:web:71343e5000d55e010c712f89",
-};
+// Variabel Global dari Lingkungan Canvas
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'somnia-default-app-id';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-const DUMMY_APP_ID = 'default-app-id';
-
-// --- VARIABEL GLOBAL FIREBASE DAN AUTH ---
 let app;
 let db;
 let auth;
 let userId = null;
-let dbStatus = "Initializing...";
-let isAuthReady = false; 
+let isAuthReady = false;
+let isWalletConnected = false;
+let displayName = "Player Anon";
 
-// --- ELEMEN UI ---
-const playerNameEl = document.getElementById('playerName');
-const startButton = document.getElementById('startOnchainBtn');
-const backMenuButton = document.getElementById('backMenuBtn');
+// Elemen UI
+const startGameBtn = document.getElementById('startGameBtn');
+const saveDisplayNameBtn = document.getElementById('saveDisplayNameBtn');
+const playerNameGameDisplay = document.getElementById('playerNameGame');
+const leaderboardList = document.getElementById('leaderboardList');
+const modalOverlay = document.getElementById('customModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalMessage = document.getElementById('modalMessage');
 
-// Fungsi untuk menampilkan modal kustom (disediakan di game.html)
-function showModal(title, message) {
-    document.getElementById('modalTitle').innerText = title;
-    document.getElementById('modalMessage').innerText = message;
-    document.getElementById('customModal').style.display = 'flex';
-}
 
 /**
- * Inisialisasi Firebase (Memeriksa Lingkungan Canvas vs. Hardcode)
+ * @description Inisialisasi Firebase dan otentikasi pengguna.
  */
 async function initializeFirebase() {
+    console.log("Memulai inisialisasi Firebase...");
+    
+    if (!firebaseConfig) {
+        window.updateFirebaseStatusUI("[ERROR KRITIS]", "Konfigurasi Firebase Hilang!", false);
+        return;
+    }
+
     try {
-        // Menggunakan Konfigurasi Canvas jika tersedia
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : HARDCODED_FIREBASE_CONFIG;
-        
-        // Menggunakan App ID Canvas jika tersedia
-        const appId = typeof __app_id !== 'undefined' ? __app_id : DUMMY_APP_ID;
-
-        if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.includes("ANDA-HARUS-MENGGANTI-INI")) {
-            throw new Error("Konfigurasi Firebase tidak valid. Harap ganti placeholder HARDCODED_FIREBASE_CONFIG.");
-        }
-
-        // Aktifkan logging debug untuk melihat status koneksi
-        setLogLevel('debug');
-        
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-        dbStatus = "Connected to Firebase.";
         
-        // 1. Setup Auth State Listener
+        // Logika Otentikasi
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 userId = user.uid;
-                dbStatus = "User Authenticated.";
-                playerNameEl.innerText = `ID: ${userId.substring(0, 8)}...`;
-                isAuthReady = true; 
-                startButton.disabled = false;
-                startButton.innerText = "START GAME (0.01 SOMI)";
-                
-                // Panggil fungsi inisialisasi UI setelah auth siap (jika ada)
-                // updateGameUI(); 
-                console.log("Auth State Changed: User is signed in.");
-
-            } else {
-                // 2. Initial Sign-In Attempt
-                try {
-                    // Coba sign-in dengan token kustom jika ada (di Canvas)
-                    if (typeof __initial_auth_token !== 'undefined') {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        // Jika tidak ada token (di Vercel), sign-in Anonim
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    // Jika sign-in gagal, tetapkan status error
-                    dbStatus = `Auth Error: ${error.code}`;
-                    playerNameEl.innerText = `Auth Gagal!`;
-                    isAuthReady = false;
-                    startButton.disabled = true;
-                    showModal("CRITICAL ERROR", "Gagal Otentikasi Firebase. Cek konsol untuk detail.");
-                    console.error("Firebase Authentication Gagal:", error);
+                // Jika tidak ada nama tampilan yang ditetapkan, gunakan sebagian UID sebagai default
+                if (!localStorage.getItem('displayName')) {
+                    displayName = "User#" + userId.substring(0, 6);
+                } else {
+                    displayName = localStorage.getItem('displayName');
                 }
+                
+                isAuthReady = true;
+                console.log(`Otentikasi Berhasil. UID: ${userId}`);
+                window.updateFirebaseStatusUI("KONEKSI BERHASIL", `ID Pemain: ${displayName} (${userId.substring(0, 8)}...)`, true);
+                
+                // Aktifkan tombol save display name dan set nilai awal
+                saveDisplayNameBtn.disabled = false;
+                
+                // Pastikan tombol Play Game hanya aktif setelah otentikasi berhasil
+                if (isWalletConnected) {
+                     startGameBtn.disabled = false;
+                }
+                
+                // Mulai listener Leaderboard
+                listenToLeaderboard();
+                
+            } else {
+                console.log("Pengguna keluar atau otentikasi gagal.");
+                userId = null;
+                isAuthReady = true; // Tetapkan true agar kita tidak mengulang upaya auth
+                window.updateFirebaseStatusUI("[Gagal Otentikasi]", "Tidak dapat masuk. Otentikasi Anonim Gagal.", false);
             }
         });
-
-    } catch (error) {
-        dbStatus = "Config/Init Error";
-        playerNameEl.innerText = `Konfigurasi GAGAL.`;
-        startButton.disabled = true;
-        showModal("CRITICAL ERROR", `Gagal Koneksi ke Firebase: ${error.message}`);
-        console.error("Firebase Initialization Failed:", error);
-    }
-}
-
-// =========================================================================
-// --- GAME INTERAKSI (WEB3/SCORE) ---
-// =========================================================================
-
-/**
- * Simulasi Interaksi Wallet untuk memulai game.
- */
-async function startOnchain() {
-    if (!isAuthReady) {
-        showModal("Kesalahan", "Database belum siap. Tunggu atau periksa konfigurasi Anda.");
-        return;
-    }
-    
-    // Logika Wallet (Simulasi): Cek ketersediaan Ethers
-    if (typeof window.ethereum === 'undefined') {
-        showModal("Peringatan", "MetaMask/Wallet tidak terdeteksi. Tidak dapat memulai Onchain.");
-        console.error("Wallet not detected.");
-        return;
-    }
-
-    try {
-        startButton.disabled = true;
-        startButton.innerText = "Transaksi diproses...";
         
-        // 1. Hubungkan Wallet
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        
-        // 2. Simulasi Transaksi (Placeholder)
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulasi penundaan transaksi 
-        
-        // Jika sukses:
-        // Panggil fungsi startGameLoop dari game_logic.js
-        if (typeof startGameLoop === 'function') {
-            startGameLoop();
+        // Coba masuk dengan token khusus atau anonim
+        if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
         } else {
-            console.error("startGameLoop tidak ditemukan!");
-            throw new Error("Fungsi Game Logic tidak terhubung.");
+            await signInAnonymously(auth);
         }
 
     } catch (error) {
-        startButton.disabled = false;
-        startButton.innerText = "START GAME (0.01 SOMI)";
-        const msg = error.message.includes("rejected") ? "Transaksi ditolak oleh pengguna." : "Gagal memulai Onchain. Cek konsol.";
-        showModal("Submit Gagal", msg);
-        console.error("Error during startOnchain:", error);
+        console.error("Gagal saat inisialisasi atau otentikasi Firebase:", error);
+        window.updateFirebaseStatusUI("[ERROR KRITIS]", `Kode: ${error.code} | Pesan: ${error.message}`, false);
     }
 }
 
 /**
- * Mengirim skor akhir ke Firestore.
- * @param {number} finalScore - Skor yang dicapai pemain.
+ * @description Mensimulasikan koneksi ke dompet Web3.
  */
-async function submitFinalScore(finalScore) {
-    if (!isAuthReady || !userId) {
-        console.error("Submit dibatalkan: Auth belum siap atau userId hilang.");
+window.startOnchain = () => {
+    console.log("Memulai simulasi koneksi dompet...");
+    // Simulasi ethers.js
+    if (typeof ethers !== 'undefined' && ethers.providers) {
+        // Anggap koneksi berhasil
+        isWalletConnected = true;
+        window.updateConnectButtonUI(true);
+        console.log("Simulasi Dompet Terhubung.");
+        
+        if (isAuthReady) {
+            startGameBtn.disabled = false;
+        }
+    } else {
+        console.warn("Ethers.js tidak termuat atau koneksi gagal disimulasikan.");
+    }
+};
+
+/**
+ * @description Menyimpan nama tampilan ke Firestore dan LocalStorage.
+ */
+saveDisplayNameBtn.addEventListener('click', async () => {
+    const input = prompt("Masukkan nama tampilan Anda (maks 15 karakter):");
+    if (input && input.trim().length > 0) {
+        const newName = input.trim().substring(0, 15);
+        displayName = newName;
+        localStorage.setItem('displayName', newName);
+        
+        // Update di Firestore (di koleksi publik)
+        if (db && userId) {
+            try {
+                const userRef = doc(db, `artifacts/${appId}/public/data/users/${userId}`);
+                await setDoc(userRef, { displayName: newName, lastUpdate: new Date() }, { merge: true });
+                console.log("Nama tampilan berhasil disimpan di Firestore.");
+                window.updateFirebaseStatusUI("KONEKSI BERHASIL", `ID Pemain: ${displayName} (${userId.substring(0, 8)}...)`, true);
+            } catch (e) {
+                console.error("Error menyimpan nama tampilan:", e);
+                showCustomModal("Error", "Gagal menyimpan nama tampilan ke database.");
+            }
+        } else {
+             window.updateFirebaseStatusUI("KONEKSI GAGAL", "Silakan coba otentikasi ulang.", false);
+        }
+    }
+});
+
+
+/**
+ * @description Menampilkan modal kustom.
+ * @param {string} title Judul modal.
+ * @param {string} message Pesan modal.
+ */
+window.showCustomModal = (title, message) => {
+    modalTitle.innerText = title;
+    modalMessage.innerHTML = message;
+    modalOverlay.style.display = 'flex';
+};
+
+
+/**
+ * @description Menyimpan skor tertinggi pemain.
+ * @param {number} score Skor yang akan disimpan.
+ */
+window.saveScore = async (score) => {
+    if (!db || !userId) {
+        console.error("Database belum siap atau UID tidak ditemukan.");
         return;
     }
-    
-    // Tentukan lokasi data: /artifacts/{appId}/public/data/leaderboard/{documentId}
-    const appId = typeof __app_id !== 'undefined' ? __app_id : DUMMY_APP_ID;
-    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-    
+
     try {
-        const displayName = await fetchDisplayName();
+        const userRef = doc(db, `artifacts/${appId}/public/data/users/${userId}`);
         
-        // Query untuk mencari skor terbaik yang sudah ada
-        const q = query(leaderboardRef, limit(1)); // Cukup ambil 1 (asumsi 1 skor per user di implementasi ini)
-        const snapshot = await getDocs(q);
+        // Coba ambil skor lama (atau 0 jika tidak ada)
+        // Kita tidak menggunakan getDoc di sini, kita biarkan logic di setDoc dengan merge
         
-        // Data yang akan disimpan
-        const scoreData = {
-            userId: userId,
-            displayName: displayName,
-            score: finalScore,
-            timestamp: serverTimestamp() 
-        };
-
-        let docIdToUpdate = userId; // Gunakan UID sebagai ID dokumen
-
-        // Simpan atau perbarui skor
-        await setDoc(doc(leaderboardRef, docIdToUpdate), scoreData);
+        // Karena aturan Firestore, kita TIDAK boleh menggunakan orderBy dan limit di sisi klien untuk mengambil skor tertinggi
+        // Jadi, kita akan menganggap setiap pengguna hanya memiliki satu skor dan skor itu diupdate
+        await setDoc(userRef, { 
+            displayName: displayName, 
+            score: score, 
+            lastPlayed: new Date() 
+        }, { merge: true });
         
-        console.log(`Skor ${finalScore} berhasil disubmit dengan ID: ${docIdToUpdate}`);
-
-    } catch (error) {
-        showModal("Submit Gagal", "Gagal mencatat skor. Cek konsol dan saldo.");
-        console.error("Error submitting score to Firestore:", error);
+        console.log(`Skor ${score} berhasil disimpan.`);
+        
+    } catch (e) {
+        console.error("Gagal menyimpan skor:", e);
+        showCustomModal("Error Database", "Gagal menyimpan skor tertinggi Anda.");
     }
-}
+};
+
 
 /**
- * Mengambil displayName yang disimpan pengguna
+ * @description Mendengarkan perubahan data Leaderboard secara real-time.
  */
-async function fetchDisplayName() {
-    if (!isAuthReady || !userId) return "Player Anonim";
+function listenToLeaderboard() {
+    if (!db) return;
     
-    const appId = typeof __app_id !== 'undefined' ? __app_id : DUMMY_APP_ID;
-    const profileRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+    // Path koleksi publik
+    const leaderboardCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
     
-    try {
-        // Simulasi: Karena Firestore hanya menyediakan doc() dan getDocs(), kita hanya
-        // akan menampilkan "User ID" sebagai nama jika tidak ada nama yang disimpan.
-        // Jika Anda memiliki implementasi `getDoc` yang berfungsi, gunakan itu.
-        return `Player-${userId.substring(0, 5)}`;
+    // Peringatan: Karena keterbatasan, kita akan menggunakan onSnapshot dan mengurutkan secara manual di klien.
+    // Jika data terlalu besar, ini bisa menyebabkan masalah performa.
+    // Query ini akan mengambil semua dokumen (pengguna)
+    const q = query(leaderboardCollectionRef);
 
-    } catch(e) {
-        console.warn("Failed to fetch display name:", e);
-        return `Player-${userId.substring(0, 5)}`;
-    }
+    onSnapshot(q, (snapshot) => {
+        let scores = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.score && typeof data.score === 'number') {
+                scores.push({
+                    id: doc.id,
+                    name: data.displayName || `User#${doc.id.substring(0, 6)}`,
+                    score: data.score
+                });
+            }
+        });
+
+        // Urutkan skor secara manual (descending) dan ambil 10 teratas
+        scores.sort((a, b) => b.score - a.score);
+        const topScores = scores.slice(0, 10);
+        
+        updateLeaderboardUI(topScores);
+    }, (error) => {
+        console.error("Error mendengarkan leaderboard:", error);
+        leaderboardList.innerHTML = `<p class="text-center text-red-500">Error memuat data leaderboard: ${error.message}</p>`;
+    });
 }
 
-// Panggil inisialisasi saat script dimuat
-initializeFirebase();
 
-// Ekspor fungsi untuk digunakan di game_logic.js dan HTML
-window.startOnchain = startOnchain;
-window.submitFinalScore = submitFinalScore;
-// window.fetchLeaderboard = fetchLeaderboard; // Jika ada fungsi leaderboard
+/**
+ * @description Memperbarui UI modal Leaderboard.
+ * @param {Array} scores Array skor yang diurutkan.
+ */
+function updateLeaderboardUI(scores) {
+    if (scores.length === 0) {
+        leaderboardList.innerHTML = '<p class="text-center text-gray-500">Belum ada skor yang tercatat.</p>';
+        return;
+    }
+
+    leaderboardList.innerHTML = scores.map((item, index) => `
+        <div class="leaderboard-item">
+            <span class="leaderboard-name">#${index + 1} - ${item.name}</span>
+            <span class="leaderboard-score">${item.score}</span>
+        </div>
+    `).join('');
+}
+
+// Hanya perlu dipanggil sekali saat pemuatan
+window.fetchLeaderboard = () => {
+    // Fungsi ini hanya ada untuk dipanggil oleh tombol, listener sudah berjalan
+    console.log("Leaderboard dipanggil. Data diperbarui melalui listener.");
+    // Tidak perlu melakukan apa-apa di sini karena listenToLeaderboard sudah berjalan
+};
+
+
+// Mulai proses inisialisasi Firebase saat dokumen dimuat
+window.onload = initializeFirebase;
