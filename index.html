@@ -392,9 +392,9 @@
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
 
     <!-- Skrip Game dan Firebase -->
-    <!-- Harap pastikan game_logic.js dan web3_game.js sudah ada di environment Anda -->
-    <script src="game_logic.js"></script>
-    <script src="web3_game.js"></script>
+    <!-- PERBAIKAN: Tambahkan type="module" untuk skrip yang menggunakan statement 'import' -->
+    <script type="module" src="game_logic.js"></script>
+    <script type="module" src="web3_game.js"></script>
     
     <script>
         // --- LOGIKA UI/NAVIGASI ---
@@ -513,6 +513,10 @@
                 connectWalletBtn.style.backgroundColor = 'var(--christmas-green)'; // Hijau saat terkoneksi
                 connectWalletBtn.style.borderColor = 'var(--christmas-snow)';
                 connectWalletBtn.style.boxShadow = '0 6px 0 var(--christmas-red)';
+                // Setelah wallet terhubung, tombol PLAY GAME harus aktif jika auth sudah siap.
+                if (window.isAuthReady) {
+                    startGameBtn.disabled = false;
+                }
             } else {
                 connectWalletBtn.innerText = "CONNECT WALLET";
                 connectWalletBtn.disabled = false;
@@ -520,6 +524,7 @@
                 connectWalletBtn.style.backgroundColor = ''; // Kembali ke default CSS
                 connectWalletBtn.style.borderColor = ''; // Kembali ke default CSS
                 connectWalletBtn.style.boxShadow = ''; // Kembali ke default CSS
+                startGameBtn.disabled = true;
             }
         };
 
