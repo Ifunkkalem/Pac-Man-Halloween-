@@ -1,13 +1,13 @@
 /* game_logic.js */
 // File ini hanya menangani rendering dan state game.
-// PERUBAHAN KRITIS: Menggunakan showModal() dan guard yang lebih aman di endGame.
+// PERUBAHAN KRITIS: Mengurangi ukuran PLAYER_SIZE dan menambahkan fungsi setDirection untuk kontrol mobile.
 
 let running = false;
 let currentScore = 0; 
 let gameStartTime = 0; 
 const PLAYER_SPEED = 3.5; 
-const GHOST_SIZE = 20; 
-const PLAYER_SIZE = 30; 
+const PLAYER_SIZE = 15; // DIKECILKAN (DARI 30)
+const GHOST_SIZE = 15;  // DIKECILKAN (DARI 20)
 const CANDY_VALUE = 10; 
 
 const canvas = document.getElementById("game");
@@ -79,10 +79,11 @@ function checkAABBCollision(rect1, rect2) {
  * Mencegah Player menembus dinding.
  */
 function checkPlayerWallCollision(newX, newY) {
+    // Player dianggap sebagai kotak dengan lebar 2*PLAYER_SIZE
     const playerRect = {
         x: newX - PLAYER_SIZE,
         y: newY - PLAYER_SIZE,
-        width: 2 * PLAYER_SIZE,
+        width: 2 * PLAYER_SIZE, // 30px x 30px box
         height: 2 * PLAYER_SIZE
     };
 
@@ -149,6 +150,7 @@ function moveGhost(ghost) {
     const newX = ghost.x + ghost.vx;
     const newY = ghost.y + ghost.vy;
     
+    // Kotak tabrakan hantu
     const ghostRect = {
         x: newX - ghost.radius,
         y: newY - ghost.radius,
@@ -186,6 +188,7 @@ function drawGhost(ghost) {
     
     ctx.fillStyle = ghost.color;
     ctx.beginPath();
+    // Gambar badan hantu
     ctx.arc(ghost.x, ghost.y - r / 2, r, Math.PI, 0, false);
     ctx.lineTo(ghost.x + r, ghost.y + r);
     ctx.lineTo(ghost.x + r * 0.75, ghost.y + r - 5);
@@ -199,18 +202,20 @@ function drawGhost(ghost) {
     ctx.closePath();
     ctx.fill();
 
+    // Gambar mata
     ctx.fillStyle = "white";
     ctx.beginPath();
     ctx.arc(ghost.x - r / 2, ghost.y - r / 2, 4, 0, 2 * Math.PI);
     ctx.arc(ghost.x + r / 2, ghost.y - r / 2, 4, 0, 2 * Math.PI);
     ctx.fill();
     
+    // Gambar pupil
     ctx.fillStyle = "black";
     const eyeDx = (x - ghost.x) / 10;
     const eyeDy = (y - ghost.y) / 10;
     ctx.beginPath();
     ctx.arc(ghost.x - r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
-    ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI); // Corrected Y coordinate
+    ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI); 
     ctx.fill();
 }
 
@@ -218,6 +223,7 @@ function checkCollision(ghost) {
     const dx = x - ghost.x;
     const dy = y - ghost.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
+    // PLAYER_SIZE adalah radius, GHOST_SIZE adalah radius
     return distance < PLAYER_SIZE + ghost.radius; 
 }
 
@@ -244,7 +250,8 @@ function setupCandy() {
             const candyX = paddingX + c * spacingX;
             const candyY = paddingY + r * spacingY;
             
-            if (Math.abs(candyX - 400) < 60 && Math.abs(candyY - 300) < 60) continue; 
+            // Hindari area tengah awal player
+            if (Math.abs(candyX - 400) < 40 && Math.abs(candyY - 300) < 40) continue; 
             
             let isInsideWall = false;
             const candyRect = {
@@ -302,7 +309,7 @@ function checkCandyCollection() {
         const dy = y - item.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < PLAYER_SIZE) {
+        if (distance < PLAYER_SIZE) { // Collision radius lebih kecil karena player lebih kecil
             currentScore += CANDY_VALUE;
             candy.splice(i, 1); 
 
@@ -318,13 +325,17 @@ function checkCandyCollection() {
 
 // --- PLAYER CONTROL & DRAW FUNCTIONS ---
 
-function handleKeyDown(event) {
+/**
+ * Fungsi untuk mengatur arah pergerakan (dipanggil oleh tombol mobile dan keyboard).
+ * @param {string} key - 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'
+ */
+function setDirection(key) {
     if (!running) return;
 
     vx = 0;
     vy = 0;
     
-    switch (event.key) {
+    switch (key) {
         case "ArrowRight":
             vx = PLAYER_SPEED;
             currentDirection = 0; 
@@ -343,13 +354,21 @@ function handleKeyDown(event) {
             break;
     }
 }
+
+function handleKeyDown(event) {
+    // Memanggil fungsi umum setDirection
+    setDirection(event.key);
+}
+
 window.addEventListener('keydown', handleKeyDown);
+
 
 function drawPacman() {
     const radius = PLAYER_SIZE;
     let startAngle = 0;
     let endAngle = 2 * Math.PI;
 
+    // Pergerakan mulut
     const mouthOpenness = Math.sin(Date.now() / 100) * 0.2 + 0.5;
     const mouthAngle = mouthOpenness * Math.PI / 4;
 
@@ -412,18 +431,21 @@ function loop() {
     const newX = x + vx;
     const newY = y + vy;
 
+    // Cek tabrakan X
     if (!checkPlayerWallCollision(newX, y)) {
         x = newX;
     } else {
         vx = 0; 
     }
     
+    // Cek tabrakan Y
     if (!checkPlayerWallCollision(x, newY)) {
         y = newY;
     } else {
         vy = 0; 
     }
 
+    // Batasan perimeter (memastikan player tidak keluar batas)
     const perimeterMargin = WALL_THICKNESS + PLAYER_SIZE;
     if (x < perimeterMargin) { x = perimeterMargin; vx = 0; }
     if (x > canvas.width - perimeterMargin) { x = canvas.width - perimeterMargin; vx = 0; }
@@ -496,14 +518,11 @@ function endGame(isWin) {
     const timeElapsed = Date.now() - gameStartTime;
 
     // Tambahkan GUARD KRITIS: Jika skor 0 dan game berakhir kurang dari 2 detik (terjadi instan), abaikan.
-    // Ini adalah langkah pengamanan terakhir terhadap race condition.
     if (timeElapsed < 2000 && currentScore === 0 && !isWin) {
         console.warn("endGame diabaikan: Panggilan terjadi terlalu cepat (<2 detik) saat inisialisasi.");
-        running = false; // Pastikan loop berhenti
-        // Reset Tombol UI:
+        running = false; 
         document.getElementById("startOnchainBtn").disabled = false;
         document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
-        // JANGAN tampilkan modal
         return; 
     }
     
@@ -514,7 +533,6 @@ function endGame(isWin) {
         ? `Anda memenangkan permainan dengan skor penuh: ${currentScore}` 
         : `Final Score: ${currentScore}`;
 
-    // Panggil MODAL KUSTOM (menggantikan alert())
     if (typeof showModal === 'function') {
         showModal(title, message);
     } else {
@@ -529,7 +547,7 @@ function endGame(isWin) {
         console.error("submitFinalScore tidak ditemukan. Transaksi skor tidak dikirim.");
     }
     
-    // Reset tombol start (tombol submit akan diurus di web3_game.js)
+    // Reset tombol start 
     document.getElementById("startOnchainBtn").disabled = false;
     document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
 }
