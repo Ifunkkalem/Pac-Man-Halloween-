@@ -1,10 +1,10 @@
 /* game_logic.js */
 // File ini hanya menangani rendering dan state game.
-// PERUBAHAN KRITIS: Penambahan gameStartTime untuk mencegah Game Over instan.
+// PERUBAHAN KRITIS: Ghost movement dan collision check ditunda selama 500ms setelah game dimulai.
 
 let running = false;
 let currentScore = 0; 
-let gameStartTime = 0; // Tambahkan variabel waktu mulai game
+let gameStartTime = 0; // Waktu mulai game
 const PLAYER_SPEED = 3.5; 
 const GHOST_SIZE = 20; 
 const PLAYER_SIZE = 30; 
@@ -209,8 +209,9 @@ function drawGhost(ghost) {
     const eyeDx = (x - ghost.x) / 10;
     const eyeDy = (y - ghost.y) / 10;
     ctx.beginPath();
-    ctx.arc(ghost.x - r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
-    ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y + r / 2 + eyeDy, 2, 0, 2 * Math.PI);
+    // PERBAIKAN BUG: koordinat mata kedua menggunakan y yang salah
+    // ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y + r / 2 + eyeDy, 2, 0, 2 * Math.PI);
+    ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
     ctx.fill();
 }
 
@@ -404,6 +405,10 @@ function loop() {
         return;
     }
     
+    // Hitung waktu berjalan
+    const timeElapsed = Date.now() - gameStartTime;
+    const isGameActive = timeElapsed > 500; // Game dianggap aktif setelah 500ms
+    
     // 1. GAMBAR DINDING (LABIRIN)
     drawWalls();
 
@@ -441,13 +446,15 @@ function loop() {
     
     // 5. UPDATE DAN GAMBAR GHOSTS + CEK COLLISION
     for (const ghost of ghosts) {
-        moveGhost(ghost);
-        drawGhost(ghost);
-
-        if (checkCollision(ghost)) {
-            endGame(false); // Game Over karena tabrakan
-            return; 
+        if (isGameActive) {
+            // Hantu hanya bergerak dan dicek tabrakannya setelah 500ms
+            moveGhost(ghost);
+            if (checkCollision(ghost)) {
+                endGame(false); // Game Over karena tabrakan
+                return; 
+            }
         }
+        drawGhost(ghost); // Hantu selalu digambar
     }
     
     // 6. Update Score UI
@@ -494,20 +501,6 @@ function startGameLoop() {
  */
 function endGame(isWin) {
     if (!running) return;
-    
-    // --- KRITIS: PEMERIKSAAN WAKTU DAN SKOR MINIMUM ---
-    const timeElapsed = Date.now() - gameStartTime;
-    
-    if (timeElapsed < 1000 && currentScore === 0 && !isWin) {
-        // Jika Game Over dalam 1 detik pertama dengan skor 0 (panggilan instan yang tidak disengaja)
-        console.warn("endGame diabaikan: Panggilan terjadi terlalu cepat (<1 detik) saat inisialisasi.");
-        running = false; // Pastikan loop berhenti
-        // Reset Tombol UI:
-        document.getElementById("startOnchainBtn").disabled = false;
-        document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
-        return; 
-    }
-    // --------------------------------------------------
     
     running = false; // Hentikan loop game
     
