@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Leaderboard Somnia</title>
+    <!-- Tailwind CSS untuk styling dan responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900;800;300&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top, #2b0033, #0a0010);
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .header {
+            color: #ff8c00; 
+            text-shadow: 0 0 10px #800080;
+            margin-bottom: 20px;
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 900;
+        }
+        .leaderboard-container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(20, 0, 30, 0.9);
+            border: 3px solid #c77dff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 30px #800080;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #ff8c00;
+            color: #1a0029;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        tr:nth-child(even) {
+            background-color: rgba(128, 0, 128, 0.1); 
+        }
+        tr:hover:not(:first-child) {
+            background-color: rgba(128, 0, 128, 0.3);
+            transition: background-color 0.2s;
+        }
+        /* Style untuk posisi top 3 */
+        tr:nth-child(2) td:first-child { background: #FFD700; color: black; font-weight: bold; } /* Gold */
+        tr:nth-child(3) td:first-child { background: #C0C0C0; color: black; font-weight: bold; } /* Silver */
+        tr:nth-child(4) td:first-child { background: #CD7F32; color: black; font-weight: bold; } /* Bronze */
+
+        /* Rounded corners untuk tabel */
+        table thead tr:first-child th:first-child { border-top-left-radius: 8px; }
+        table thead tr:first-child th:last-child { border-top-right-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1 class="header">GLOBAL SOMNIA LEADERBOARD</h1>
+
+    <div class="leaderboard-container">
+        
+        <p id="loadingStatus" class="text-center text-gray-400 mb-4">Memuat skor...</p>
+        
+        <table id="leaderboardTable" class="hidden">
+            <thead>
+                <tr>
+                    <th class="w-1/12">#</th>
+                    <th class="w-6/12">DISPLAY NAME</th>
+                    <th class="w-4/12 text-right">SCORE</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+                <!-- Data akan dimasukkan di sini oleh JavaScript -->
+            </tbody>
+        </table>
+
+        <div id="error" class="hidden text-red-400 text-center p-4 rounded-lg bg-red-900/50 mt-4">
+            Gagal memuat Leaderboard.
+        </div>
+    </div>
+
+    <button onclick="window.location.href='index.html'" class="mt-8 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
+        KEMBALI KE MENU
+    </button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, limit, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        setLogLevel('Debug');
+
+        // ====================================================================
+        // --- FIREBASE & AUTHENTICATION SETUP ---
+        // ====================================================================
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        const EMPTY_CONFIG_FALLBACK = '{"apiKey":"AIzaSyB-fallback","authDomain":"projectId.firebaseapp.com","projectId":"fallback-project","storageBucket":"projectId.appspot.com","messagingSenderId":"123456789012","appId":"1:123456789012:web:abac123456789012"}';
+
+        function getFirebaseConfig() {
+            const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            let config = null;
+            if (rawConfig && typeof rawConfig === 'string' && rawConfig.trim() !== '') {
+                try { config = JSON.parse(rawConfig); } catch (e) { console.error("Gagal parse Config sistem.", e); }
+            }
+            if (!config || Object.keys(config).length === 0) {
+                 try { config = JSON.parse(EMPTY_CONFIG_FALLBACK); } catch (e) { return null; }
+            }
+            return config;
+        }
+
+        let db = null;
+        let auth = null;
+        let firebaseReady = false;
+
+        const loadingStatusEl = document.getElementById('loadingStatus');
+        const leaderboardTableEl = document.getElementById('leaderboardTable');
+        const leaderboardBodyEl = document.getElementById('leaderboardBody');
+        const errorEl = document.getElementById('error');
+
+        async function fetchLeaderboardData() {
+            if (!db) {
+                loadingStatusEl.textContent = "Error: Database tidak terinisialisasi.";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            loadingStatusEl.textContent = "Memuat skor...";
+            leaderboardTableEl.classList.add('hidden');
+            errorEl.classList.add('hidden');
+
+            try {
+                // Query collection publik: /artifacts/{appId}/public/data/leaderboard
+                const path = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                
+                // Fetch semua dokumen dan sort secara lokal (karena orderBy dilarang)
+                // Sebaiknya fetch semua data dan sorting lokal agar tidak perlu index Firestore
+                
+                const querySnapshot = await getDocs(path);
+                let scores = [];
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    scores.push({
+                        id: doc.id,
+                        score: data.score || 0,
+                        displayName: data.displayName || 'Anonim',
+                        userId: data.userId || 'N/A'
+                    });
+                });
+                
+                // Sorting data di memori secara descending berdasarkan skor
+                scores.sort((a, b) => b.score - a.score);
+
+                // Batasi hingga 10 skor teratas
+                const topScores = scores.slice(0, 10);
+                
+                renderLeaderboard(topScores);
+                
+            } catch (e) {
+                console.error("Error saat mengambil Leaderboard:", e);
+                loadingStatusEl.classList.add('hidden');
+                errorEl.classList.remove('hidden');
+            }
+        }
+        
+        function renderLeaderboard(scores) {
+            leaderboardBodyEl.innerHTML = ''; 
+            
+            if (scores.length === 0) {
+                loadingStatusEl.textContent = "Belum ada skor yang tercatat.";
+                leaderboardTableEl.classList.add('hidden');
+                return;
+            }
+
+            scores.forEach((item, index) => {
+                const row = leaderboardBodyEl.insertRow();
+                const rankCell = row.insertCell();
+                const nameCell = row.insertCell();
+                const scoreCell = row.insertCell();
+                
+                rankCell.textContent = index + 1;
+                rankCell.className = "font-extrabold";
+                nameCell.textContent = item.displayName;
+                scoreCell.textContent = item.score.toLocaleString('id-ID');
+                scoreCell.className = "text-right font-mono text-yellow-300";
+
+                // Highlight posisi 1, 2, 3 (CSS handles the background color)
+                if (index === 0) nameCell.innerHTML = `<span class="text-yellow-400">👑 ${item.displayName}</span>`;
+                else if (index === 1) nameCell.innerHTML = `<span class="text-gray-300">🥈 ${item.displayName}</span>`;
+                else if (index === 2) nameCell.innerHTML = `<span class="text-amber-700">🥉 ${item.displayName}</span>`;
+            });
+
+            loadingStatusEl.classList.add('hidden');
+            leaderboardTableEl.classList.remove('hidden');
+        }
+
+        async function initializeFirebaseAndAuth() {
+            const firebaseConfig = getFirebaseConfig();
+
+            if (!firebaseConfig) { console.error("Firebase GAGAL: Config tidak tersedia."); return; }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                if (initialAuthToken) { 
+                    await signInWithCustomToken(auth, initialAuthToken); 
+                } else { 
+                    await signInAnonymously(auth); 
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        firebaseReady = true;
+                        fetchLeaderboardData(); // Muat data setelah auth siap
+                    } else {
+                        firebaseReady = false;
+                        // Leaderboard tetap dimuat meski anonim, tapi beri peringatan
+                        console.warn("Otentikasi Firebase gagal, Leaderboard dimuat secara anonim.");
+                        fetchLeaderboardData(); 
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error Firebase Init/Auth:", error);
+                loadingStatusEl.textContent = "Gagal Inisialisasi Firebase.";
+                errorEl.classList.remove('hidden');
+            }
+        }
+        
+        // Mulai inisialisasi
+        initializeFirebaseAndAuth();
+    </script>
+</body>
+</html>
