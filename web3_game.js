@@ -1,10 +1,10 @@
 /* web3_game.js */
-// File ini menangani semua interaksi on-chain untuk halaman game.
+// File ini menangani semua interaksi on-chain untuk halaman game dan Custom Modal.
 
-// --- KONFIGURASI SOMNIA & KONTRAK (Sama seperti yang disepakati) ---
+// --- KONFIGURASI SOMNIA & KONTRAK ---
 const LEADERBOARD_CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
 const START_FEE_WEI = "10000000000000000"; // 0.01 SOMI dalam Wei
-const MAX_SCORE = 3000; // Batas skor maksimum yang bisa dicatat
+const MAX_SCORE = 3000; 
 
 // ABI (Hanya fungsi yang dibutuhkan di sini)
 const LEADERBOARD_ABI = [
@@ -20,41 +20,57 @@ let signer = null;
 let leaderboardContract = null;
 let gameIsReady = false; 
 
+// --- FUNGSI CUSTOM MODAL (PENGGANTI alert() & confirm()) ---
+
+/**
+ * Menampilkan Modal Kustom yang tidak akan mem-freeze UI.
+ * @param {string} title - Judul modal.
+ * @param {string} message - Pesan yang akan ditampilkan.
+ */
+function showModal(title, message) {
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalMessage').innerText = message;
+    document.getElementById('customModal').style.display = 'flex';
+}
+
+/**
+ * Menampilkan Modal Konfirmasi Kustom (Menggantikan confirm()).
+ * CATATAN: Karena tidak bisa menggunakan Promise/Async di sini, kita gunakan
+ * confirm() bawaan hanya untuk transaksi kritis. Untuk pesan biasa, gunakan showModal.
+ */
+
+
 // --- FUNGSI UTAMA WEB3 ---
 
 /**
  * Inisiasi Web3 saat halaman game dimuat.
  */
 async function initWeb3() {
-    // Check keberadaan Ethers dan Wallet
     if (!window.ethereum || typeof ethers === 'undefined') {
-        alert("Ethers.js atau MetaMask tidak terdeteksi. Tidak dapat berinteraksi on-chain.");
+        showModal("Web3 Error", "Ethers.js atau MetaMask tidak terdeteksi. Tidak dapat berinteraksi on-chain.");
         document.getElementById("startOnchainBtn").disabled = true;
         document.getElementById("playerName").innerText = "Web3 Error";
         return;
     }
 
     try {
-        // Menggunakan Web3Provider dari MetaMask
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         WALLET_ADDRESS = await signer.getAddress();
         
-        // Inisiasi Kontrak
         leaderboardContract = new ethers.Contract(LEADERBOARD_CONTRACT_ADDRESS, LEADERBOARD_ABI, signer);
         gameIsReady = true;
 
-        // Ambil nama dari local storage dan update UI
         const playerName = localStorage.getItem(`name_${WALLET_ADDRESS}`) || "Player";
         document.getElementById("playerName").innerText = playerName;
 
-        // Aktifkan tombol START
         document.getElementById("startOnchainBtn").disabled = false;
+        document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
 
 
     } catch (error) {
         console.error("Inisialisasi Web3 Gagal:", error);
-        alert("Gagal terhubung ke Somnia. Pastikan Anda sudah login di MetaMask.");
+        showModal("Koneksi Gagal", "Gagal terhubung ke Somnia. Pastikan Anda sudah login di MetaMask.");
         document.getElementById("playerName").innerText = "Not Logged In";
     }
 }
@@ -65,16 +81,16 @@ async function initWeb3() {
  */
 async function startOnchain() {
     if (!gameIsReady) {
-        alert("Koneksi Web3 belum siap. Silakan refresh halaman.");
+        showModal("Web3 Error", "Koneksi Web3 belum siap. Silakan refresh halaman.");
         return;
     }
     
-    // Asumsi: Variabel 'running' ada di game_logic.js dan global
     if (typeof running !== 'undefined' && running) {
-        alert("Game sudah berjalan!");
+        showModal("Game Active", "Game sudah berjalan!");
         return;
     }
 
+    // Menggunakan confirm bawaan untuk konfirmasi transaksi kritis
     if (!confirm(`Memulai game membutuhkan biaya 0.01 SOMI. Lanjutkan?`)) return;
 
     try {
@@ -82,25 +98,24 @@ async function startOnchain() {
         startBtn.disabled = true;
         startBtn.innerText = "Sending TX...";
 
-        // Panggil fungsi startGame() di Kontrak
         const tx = await leaderboardContract.startGame({
             value: START_FEE_WEI,
         });
 
-        alert("Transaksi startGame terkirim. Mohon tunggu konfirmasi...");
+        showModal("Transaksi Terkirim", "Transaksi startGame terkirim. Mohon tunggu konfirmasi...");
         await tx.wait();
         
         // Panggil fungsi startGameLoop() dari game_logic.js setelah sukses
         if (typeof startGameLoop === 'function') {
             startGameLoop(); 
-            // Text tombol diubah di startGameLoop
+            showModal("Game Started!", "Selamat bermain! Gunakan tombol panah untuk bergerak.");
         } else {
-             alert("Transaksi sukses, namun startGameLoop() tidak ditemukan.");
+             showModal("System Error", "Transaksi sukses, namun startGameLoop() tidak ditemukan.");
         }
 
     } catch (error) {
         console.error("Transaksi startGame Gagal:", error);
-        alert("Pembayaran 0.01 SOMI gagal. Cek saldo SOMI.");
+        showModal("Transaksi Gagal", "Pembayaran 0.01 SOMI gagal. Cek saldo SOMI dan konsol.");
         
         const startBtn = document.getElementById("startOnchainBtn");
         startBtn.disabled = false;
@@ -116,13 +131,14 @@ async function startOnchain() {
  */
 async function submitFinalScore(finalScore) {
     if (!gameIsReady) {
-        alert("Koneksi Web3 belum siap. Skor tidak dapat dikirim.");
+        showModal("Web3 Error", "Koneksi Web3 belum siap. Skor tidak dapat dikirim.");
         return;
     }
     
     // Cap skor (Capping)
     if (finalScore > MAX_SCORE) finalScore = MAX_SCORE;
 
+    // Menggunakan confirm bawaan untuk konfirmasi transaksi kritis
     if (!confirm(`Skor akhir yang akan dicatat: ${finalScore}. Kirim ke Leaderboard SOMNIA?`)) return;
 
     try {
@@ -130,16 +146,15 @@ async function submitFinalScore(finalScore) {
         submitBtn.disabled = true;
         submitBtn.innerText = "Submitting Score...";
 
-        // Panggil fungsi submitScore di kontrak
         const tx = await leaderboardContract.submitScore(finalScore);
-        alert(`Transaksi skor ${finalScore} terkirim. Menunggu konfirmasi...`);
+        showModal("Transaksi Skor", `Transaksi skor ${finalScore} terkirim. Menunggu konfirmasi...`);
         
         await tx.wait();
-        alert(`Skor ${finalScore} berhasil dicatat di SOMNIA!`);
+        showModal("Skor Tercatat", `Skor ${finalScore} berhasil dicatat di SOMNIA!`);
         
     } catch (error) {
         console.error("Gagal mencatat skor:", error);
-        alert("Gagal mencatat skor. Cek konsol dan saldo gas.");
+        showModal("Submit Gagal", "Gagal mencatat skor. Cek konsol dan saldo gas.");
     } finally {
         const submitBtn = document.getElementById("submitScoreBtn");
         submitBtn.disabled = false;
