@@ -155,7 +155,7 @@
     
     <!-- Status Wallet (ID: walletStatus) -->
     <div id="walletStatus" class="wallet-box">
-        Loading...
+        Memuat Status...
     </div>
 
     <!-- Input Nama (ID: displayNameInput) -->
@@ -163,7 +163,7 @@
       id="displayNameInput" 
       type="text" 
       maxlength="12" 
-      placeholder="Enter Display Name (Max 12)"
+      placeholder="Loading Profile..."
       disabled
     />
 
@@ -237,31 +237,36 @@
     const walletStatusEl = document.getElementById('walletStatus');
 
     function updateUI() {
-        if (!userId) {
-            walletStatusEl.textContent = "Status: Connecting to Firebase...";
-            connectWalletBtn.disabled = true;
-            displayNameInput.disabled = true;
-            saveNameBtn.disabled = true;
-            playBtn.disabled = true;
-            leaderboardBtn.disabled = false; // Leaderboard bisa diakses tanpa auth
-            return;
-        }
-
         const connected = walletAddress !== null;
         const nameValid = displayNameInput.value.length > 0 && displayNameInput.value.length <= 12;
+        const isReady = firebaseReady && nameLoaded;
         
-        walletStatusEl.innerHTML = `
-            Firebase User ID: ${userId.substring(0, 8) + '...'} <br>
-            Wallet: ${connected ? walletAddress.substring(0, 6) + '...' + walletAddress.slice(-4) : 'Disconnected'}
-        `;
+        // 1. Update Status Display
+        if (!isReady) {
+            walletStatusEl.innerHTML = `Status: Connecting to Firebase... <br> Wallet: ${connected ? walletAddress.substring(0, 6) + '...' + walletAddress.slice(-4) : 'Disconnected'}`;
+        } else {
+             walletStatusEl.innerHTML = `
+                Firebase User ID: ${userId.substring(0, 8) + '...'} <br>
+                Wallet: ${connected ? walletAddress.substring(0, 6) + '...' + walletAddress.slice(-4) : 'Disconnected'}
+            `;
+        }
 
+        // 2. Control Buttons
+        
+        // CONNECT WALLET button must always be clickable unless already connected
         connectWalletBtn.disabled = connected;
         connectWalletBtn.textContent = connected ? "WALLET CONNECTED" : "CONNECT WALLET";
 
-        displayNameInput.disabled = !connected || !nameLoaded;
-        saveNameBtn.disabled = !connected || !nameValid;
-        playBtn.disabled = !(connected && nameValid); 
+        displayNameInput.disabled = !connected || !isReady;
+        saveNameBtn.disabled = !connected || !nameValid || !isReady;
+        playBtn.disabled = !(connected && nameValid && isReady); 
         leaderboardBtn.disabled = false;
+        
+        if (!isReady) {
+             displayNameInput.placeholder = "Loading Profile...";
+        } else {
+             displayNameInput.placeholder = "Enter Display Name (Max 12)";
+        }
     }
 
     async function loadUserData() {
@@ -316,6 +321,7 @@
                     userId = null;
                     firebaseReady = false;
                     console.warn("Firebase Gagal Otentikasi.");
+                    nameLoaded = true; // Set true agar UI bisa diupdate
                     updateUI();
                 }
             });
@@ -364,7 +370,9 @@
     // ====================================================================
     
     async function saveDisplayName() {
-        if (!firebaseReady || !userId || !db || !walletAddress) return;
+        // Cek kembali status isReady
+        const isReady = firebaseReady && nameLoaded;
+        if (!isReady || !userId || !db || !walletAddress) return; 
 
         const name = displayNameInput.value.trim();
         if (name.length < 1 || name.length > 12) {
@@ -389,7 +397,6 @@
             document.getElementById('menuTxStatus').textContent = "Gagal menyimpan nama. Coba lagi.";
         } finally {
             saveNameBtn.textContent = "EDIT DISPLAY NAME";
-            saveNameBtn.disabled = false;
             updateUI();
         }
     }
@@ -413,9 +420,8 @@
     
     // Mulai inisialisasi
     initializeFirebaseAndAuth();
-    updateUI(); // Panggil pertama kali untuk menampilkan "Loading..."
+    updateUI(); // Panggil pertama kali untuk menampilkan status awal
 </script>
 
 </body>
 </html>
-
