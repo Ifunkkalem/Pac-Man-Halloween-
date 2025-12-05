@@ -538,4 +538,114 @@
             }
             
             // Cek tabrakan dinding sebelum bergerak (Y)
-            if (!checkPlayerWallCollision(x, newY))
+            if (!checkPlayerWallCollision(x, newY)) {
+                y = newY;
+            } else {
+                vy = 0; 
+            }
+
+            // Batas Dinding Canvas (Perimeter)
+            const minBound = WALL_THICKNESS + PLAYER_SIZE;
+            const maxBoundX = canvas.width - WALL_THICKNESS - PLAYER_SIZE;
+            const maxBoundY = canvas.height - WALL_THICKNESS - PLAYER_SIZE;
+
+            if (x < minBound) x = minBound;
+            if (x > maxBoundX) x = maxBoundX;
+            if (y < minBound) y = minBound;
+            if (y > maxBoundY) y = maxBoundY;
+            
+            
+            // 3. GAMBAR PACMAN
+            drawPacman();
+            
+            // 4. GAMBAR DAN CEK PENGUMPULAN PERMEN
+            drawCandy();
+            checkCandyCollection();
+            
+            // 5. UPDATE DAN GAMBAR GHOSTS + CEK COLLISION
+            for (const ghost of ghosts) {
+                moveGhost(ghost);
+                drawGhost(ghost);
+
+                if (checkCollision(ghost)) {
+                    endGame(false); // Game Over karena tabrakan
+                    return; 
+                }
+            }
+            
+            // 6. Update Score UI
+            scoreEl.innerText = currentScore;
+        }
+
+        /**
+         * Dipanggil oleh tombol START.
+         */
+        function startGameLoop() {
+            if (running) return;
+            running = true;
+            currentScore = 0;
+            
+            // INISIASI 3 GHOST (Dimulai dari sudut luar)
+            ghosts = [
+                new Ghost(50, 50, "#FF0000", "chase", 2.0),       // Merah (Chaser)
+                new Ghost(750, 50, "#00FFFF", "random", 2.0),    // Cyan (Randomizer)
+                new Ghost(750, 550, "#FF69B4", "flee", 1.5)       // Pink (Evader)
+            ];
+            
+            setupCandy();
+
+            // Reset posisi dan kecepatan player (Tengah)
+            x = 400; 
+            y = 300;
+            vx = 0;
+            vy = 0;
+            currentDirection = 0;
+            
+            scoreEl.innerText = currentScore; 
+            document.getElementById("startOnchainBtn").disabled = true;
+            document.getElementById("startOnchainBtn").innerText = "GAME RUNNING...";
+        }
+
+        /**
+         * Dipanggil ketika game over/win.
+         * @param {boolean} isWin - True jika menang (kumpulkan semua permen).
+         */
+        function endGame(isWin) {
+            if (!running) return;
+            running = false;
+            
+            // Gunakan alert karena modal custom membutuhkan lebih banyak kode UI
+            if (isWin) {
+                alert(`SELAMAT! Anda memenangkan permainan dengan skor penuh: ${currentScore}`);
+            } else {
+                alert(`GAME OVER! Skor Akhir: ${currentScore}`);
+            }
+            
+            // Panggil fungsi submit score (Asumsi fungsi ada di scope global)
+            if (typeof submitFinalScore === 'function') {
+                submitFinalScore(currentScore); 
+            } else {
+                console.warn("Fungsi submitFinalScore tidak ditemukan. Pastikan web3_game.js terhubung.");
+            }
+            
+            document.getElementById("startOnchainBtn").disabled = false;
+            document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
+        }
+
+        /**
+         * Navigasi kembali ke menu (index.html).
+         */
+        function backMenu() {
+            // Placeholder, karena ini file tunggal, kita hanya me-reload
+            window.location.reload();
+        }
+
+        // Mulai loop awal
+        window.onload = loop; 
+
+        // --- GAME LOGIC END ---
+    </script>
+</body>
+</html>
+
+
