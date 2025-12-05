@@ -6,15 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
   <!-- ETHERS.JS - Library untuk interaksi Web3/Blockchain -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 
   <style>
     /* Styling bertema Halloween/Cyberpunk */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900;800;300&display=swap');
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Trebuchet MS', sans-serif;
+      font-family: 'Inter', sans-serif;
     }
 
     body {
@@ -49,17 +50,18 @@
       z-index: 10;
       position: relative;
       text-align: center;
+      padding: 20px;
     }
 
     h1 {
-      font-size: 42px;
+      font-size: clamp(30px, 6vw, 42px);
       color: #ff8c00; /* Oranye Terang */
       text-shadow: 0 0 10px #800080, 0 0 20px #800080; /* Ungu neon */
       margin-bottom: 8px;
     }
 
     h2 {
-      font-size: 22px;
+      font-size: clamp(18px, 3vw, 22px);
       color: #c77dff; /* Ungu Muda */
       margin-bottom: 30px;
     }
@@ -71,6 +73,7 @@
       padding: 30px 40px;
       box-shadow: 0 0 20px #800080;
       min-width: 300px;
+      max-width: 90%;
     }
 
     .menu-box input {
@@ -101,8 +104,8 @@
     }
 
     .menu-box button:hover:not(:disabled) {
-      transform: scale(1.05);
-      box-shadow: 0 0 10px #ff8c00;
+      transform: scale(1.03);
+      box-shadow: 0 0 15px #ff8c00;
     }
     
     .menu-box button:disabled {
@@ -110,12 +113,14 @@
         cursor: not-allowed;
         opacity: 0.7;
         box-shadow: none;
+        transform: scale(1);
     }
 
     .wallet-box {
       font-size: 14px;
       margin-bottom: 12px;
       color: #ffb703; /* Kuning Oranye */
+      word-break: break-all;
     }
 
     .hidden { display: none !important; }
@@ -129,7 +134,7 @@
 </head>
 <body>
 
-<!-- 🎈 Bubble Effects (dari draf Anda) -->
+<!-- 🎈 Bubble Effects -->
 <script>
   for (let i = 0; i < 25; i++) {
     const bubble = document.createElement("div");
@@ -150,7 +155,7 @@
     
     <!-- Status Wallet (ID: walletStatus) -->
     <div id="walletStatus" class="wallet-box">
-        Wallet: Not Connected 
+        Loading...
     </div>
 
     <!-- Input Nama (ID: displayNameInput) -->
@@ -159,13 +164,14 @@
       type="text" 
       maxlength="12" 
       placeholder="Enter Display Name (Max 12)"
+      disabled
     />
 
     <!-- Tombol Koneksi (ID: connectWalletBtn) -->
     <button id="connectWalletBtn">CONNECT WALLET</button>
     
     <!-- Tombol Simpan Nama (ID: saveNameBtn) -->
-    <button id="saveNameBtn" disabled>EDIT DISPLAY NAME</button>
+    <button id="saveNameBtn" disabled>SAVE DISPLAY NAME</button>
     
     <div style="height: 1px; background: rgba(255, 255, 255, 0.1); margin: 15px 0;"></div>
     
@@ -176,7 +182,7 @@
     <button id="leaderboardBtn">LEADERBOARD</button>
     
     <!-- Tombol Keluar (ID: quitBtn) -->
-    <button id="quitBtn">QUIT</button>
+    <button id="quitBtn" onclick="window.close()">QUIT</button>
     
     <!-- Status Transaksi di Menu (ID: menuTxStatus) -->
     <div id="menuTxStatus"></div>
@@ -184,20 +190,231 @@
   </div>
 </div>
 
-<!-- 🎮 PLAY SCREEN PLACEHOLDER (ID: playScreen) -->
-<!-- Ini hanya placeholder. app.js akan me-redirect ke game.html -->
-<div id="playScreen" class="screen hidden">
-  <p>Loading Game...</p>
-</div>
+<!-- Logika Web3 dan Menu Utama -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-<!-- 🏆 LEADERBOARD SCREEN PLACEHOLDER (ID: leaderboardScreen) -->
-<!-- Ini hanya placeholder. app.js akan me-redirect ke leaderboard.html -->
-<div id="leaderboardScreen" class="screen hidden">
-  <p>Loading Leaderboard...</p>
-</div>
+    setLogLevel('Debug');
 
-<!-- Logika Web3 dan Menu Utama di file eksternal app.js -->
-<script src="app.js"></script>
+    // ====================================================================
+    // --- FIREBASE & AUTHENTICATION SETUP ---
+    // ====================================================================
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    
+    const EMPTY_CONFIG_FALLBACK = '{"apiKey":"AIzaSyB-fallback","authDomain":"projectId.firebaseapp.com","projectId":"fallback-project","storageBucket":"projectId.appspot.com","messagingSenderId":"123456789012","appId":"1:123456789012:web:abac123456789012"}';
+
+    function getFirebaseConfig() {
+        const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        let config = null;
+        if (rawConfig && typeof rawConfig === 'string' && rawConfig.trim() !== '') {
+            try { config = JSON.parse(rawConfig); } catch (e) { console.error("Gagal parse Config sistem.", e); }
+        }
+        if (!config || Object.keys(config).length === 0) {
+             try {
+                config = JSON.parse(EMPTY_CONFIG_FALLBACK);
+            } catch (e) {
+                return null;
+            }
+        }
+        return config;
+    }
+
+    let db;
+    let auth;
+    let userId;
+    let walletAddress = null;
+    let firebaseReady = false;
+    let nameLoaded = false;
+    
+    const displayNameInput = document.getElementById('displayNameInput');
+    const connectWalletBtn = document.getElementById('connectWalletBtn');
+    const saveNameBtn = document.getElementById('saveNameBtn');
+    const playBtn = document.getElementById('playBtn');
+    const leaderboardBtn = document.getElementById('leaderboardBtn');
+    const walletStatusEl = document.getElementById('walletStatus');
+
+    function updateUI() {
+        if (!userId) {
+            walletStatusEl.textContent = "Status: Connecting to Firebase...";
+            connectWalletBtn.disabled = true;
+            displayNameInput.disabled = true;
+            saveNameBtn.disabled = true;
+            playBtn.disabled = true;
+            leaderboardBtn.disabled = false; // Leaderboard bisa diakses tanpa auth
+            return;
+        }
+
+        const connected = walletAddress !== null;
+        const nameValid = displayNameInput.value.length > 0 && displayNameInput.value.length <= 12;
+        
+        walletStatusEl.innerHTML = `
+            Firebase User ID: ${userId.substring(0, 8) + '...'} <br>
+            Wallet: ${connected ? walletAddress.substring(0, 6) + '...' + walletAddress.slice(-4) : 'Disconnected'}
+        `;
+
+        connectWalletBtn.disabled = connected;
+        connectWalletBtn.textContent = connected ? "WALLET CONNECTED" : "CONNECT WALLET";
+
+        displayNameInput.disabled = !connected || !nameLoaded;
+        saveNameBtn.disabled = !connected || !nameValid;
+        playBtn.disabled = !(connected && nameValid); 
+        leaderboardBtn.disabled = false;
+    }
+
+    async function loadUserData() {
+        if (!db || !userId) return;
+
+        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile');
+        try {
+            const docSnap = await getDoc(docRef);
+            let name = '';
+            if (docSnap.exists()) {
+                name = docSnap.data().displayName || '';
+                walletAddress = docSnap.data().wallet || null; // Muat wallet address jika sudah disimpan
+            }
+            displayNameInput.value = name;
+            nameLoaded = true;
+            updateUI();
+        } catch (e) {
+            console.error("Error loading user profile:", e);
+            nameLoaded = true;
+            updateUI();
+        }
+    }
+
+    async function initializeFirebaseAndAuth() {
+        const firebaseConfig = getFirebaseConfig();
+
+        if (!firebaseConfig) { 
+            console.error("Firebase GAGAL: Config tidak tersedia."); 
+            updateUI();
+            return; 
+        }
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Lakukan sign-in awal
+            if (initialAuthToken) { 
+                await signInWithCustomToken(auth, initialAuthToken); 
+            } else { 
+                await signInAnonymously(auth); 
+            }
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    firebaseReady = true;
+                    console.log("Firebase Siap. User ID:", userId.substring(0, 8) + '...');
+                    loadUserData(); // Muat data setelah auth siap
+                } else {
+                    userId = null;
+                    firebaseReady = false;
+                    console.warn("Firebase Gagal Otentikasi.");
+                    updateUI();
+                }
+            });
+
+        } catch (error) {
+            console.error("Error Firebase Init/Auth:", error);
+            firebaseReady = false;
+        }
+    }
+    
+    // ====================================================================
+    // --- WEB3 / METAMASK LOGIC ---
+    // ====================================================================
+
+    async function connectWallet() {
+        if (typeof window.ethereum === 'undefined') {
+            document.getElementById('menuTxStatus').textContent = "Web3 (MetaMask/Ethers) tidak terdeteksi.";
+            return;
+        }
+        
+        connectWalletBtn.disabled = true;
+        connectWalletBtn.textContent = "Connecting...";
+
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            walletAddress = accounts[0];
+            document.getElementById('menuTxStatus').textContent = `Wallet terhubung: ${walletAddress.substring(0, 6)}...`;
+            
+            // Simpan wallet address ke profil setelah koneksi
+            if (firebaseReady && userId) {
+                 await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile'), { 
+                    wallet: walletAddress,
+                    lastConnect: Date.now()
+                }, { merge: true });
+            }
+
+        } catch (error) {
+            console.error("Error connecting wallet:", error);
+            document.getElementById('menuTxStatus').textContent = "Koneksi dompet dibatalkan atau gagal.";
+        }
+        updateUI();
+    }
+    
+    // ====================================================================
+    // --- EVENT HANDLERS ---
+    // ====================================================================
+    
+    async function saveDisplayName() {
+        if (!firebaseReady || !userId || !db || !walletAddress) return;
+
+        const name = displayNameInput.value.trim();
+        if (name.length < 1 || name.length > 12) {
+             document.getElementById('menuTxStatus').textContent = "Nama harus 1-12 karakter.";
+             return;
+        }
+
+        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile');
+        saveNameBtn.disabled = true;
+        saveNameBtn.textContent = "Saving...";
+
+        try {
+            await setDoc(docRef, { 
+                displayName: name, 
+                wallet: walletAddress,
+                lastUpdate: Date.now()
+            }, { merge: true });
+            
+            document.getElementById('menuTxStatus').textContent = "Nama berhasil disimpan!";
+        } catch (e) {
+            console.error("Error saving name:", e);
+            document.getElementById('menuTxStatus').textContent = "Gagal menyimpan nama. Coba lagi.";
+        } finally {
+            saveNameBtn.textContent = "EDIT DISPLAY NAME";
+            saveNameBtn.disabled = false;
+            updateUI();
+        }
+    }
+    
+    // Redirect ke halaman lain
+    function redirectToGame() {
+        window.location.href = 'game.html';
+    }
+    
+    function redirectToLeaderboard() {
+        window.location.href = 'leaderboard.html';
+    }
+
+
+    // Pasang Event Listeners
+    connectWalletBtn.addEventListener('click', connectWallet);
+    saveNameBtn.addEventListener('click', saveDisplayName);
+    displayNameInput.addEventListener('input', updateUI);
+    playBtn.addEventListener('click', redirectToGame);
+    leaderboardBtn.addEventListener('click', redirectToLeaderboard);
+    
+    // Mulai inisialisasi
+    initializeFirebaseAndAuth();
+    updateUI(); // Panggil pertama kali untuk menampilkan "Loading..."
+</script>
 
 </body>
 </html>
