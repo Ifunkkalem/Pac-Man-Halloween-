@@ -12,7 +12,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900;800;300&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body {
-      background-color: #0a0010; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px 10px;
+      background-color: #0a0010; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 10vh; padding: 20px 10px;
     }
     .game-container {
       width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 15px;
@@ -120,9 +120,9 @@
     let profileLoaded = false;
     
     let playerProfile = {
-        userId: null, // Internal Firebase UID (disembunyikan dari publik)
+        userId: null, // Internal Firebase UID (dipertahankan untuk Auth/Security Rules internal)
         displayName: null,
-        walletAddress: null // Identitas Publik
+        walletAddress: null // Identitas Publik utama
     };
 
     function formatWallet(address) {
