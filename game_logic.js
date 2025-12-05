@@ -1,10 +1,10 @@
 /* game_logic.js */
 // File ini hanya menangani rendering dan state game.
-// PERUBAHAN KRITIS: Ghost movement dan collision check ditunda selama 500ms setelah game dimulai.
+// PERUBAHAN KRITIS: Menggunakan showModal() dan guard yang lebih aman di endGame.
 
 let running = false;
 let currentScore = 0; 
-let gameStartTime = 0; // Waktu mulai game
+let gameStartTime = 0; 
 const PLAYER_SPEED = 3.5; 
 const GHOST_SIZE = 20; 
 const PLAYER_SIZE = 30; 
@@ -179,7 +179,7 @@ function moveGhost(ghost) {
 }
 
 /**
- * Menggambar Hantu (Tampilan Halloween) - (Tidak Berubah)
+ * Menggambar Hantu
  */
 function drawGhost(ghost) {
     const r = ghost.radius;
@@ -209,9 +209,8 @@ function drawGhost(ghost) {
     const eyeDx = (x - ghost.x) / 10;
     const eyeDy = (y - ghost.y) / 10;
     ctx.beginPath();
-    // PERBAIKAN BUG: koordinat mata kedua menggunakan y yang salah
-    // ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y + r / 2 + eyeDy, 2, 0, 2 * Math.PI);
-    ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
+    ctx.arc(ghost.x - r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
+    ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI); // Corrected Y coordinate
     ctx.fill();
 }
 
@@ -227,12 +226,12 @@ function checkCollision(ghost) {
 let candy = [];
 
 /**
- * Menyusun permen di canvas. Memastikan permen TIDAK berada di dalam dinding.
+ * Menyusun permen di canvas.
  */
 function setupCandy() {
     candy = [];
-    const rows = 12; // Lebih banyak baris
-    const cols = 20; // Lebih banyak kolom
+    const rows = 12; 
+    const cols = 20; 
     const paddingX = 40;
     const paddingY = 40;
     const spacingX = (canvas.width - 2 * paddingX) / (cols - 1);
@@ -245,10 +244,8 @@ function setupCandy() {
             const candyX = paddingX + c * spacingX;
             const candyY = paddingY + r * spacingY;
             
-            // Hindari menaruh permen di area start player
             if (Math.abs(candyX - 400) < 60 && Math.abs(candyY - 300) < 60) continue; 
             
-            // Cek apakah permen bertabrakan dengan DINDING
             let isInsideWall = false;
             const candyRect = {
                 x: candyX - candyRectSize / 2, 
@@ -258,7 +255,6 @@ function setupCandy() {
             };
 
             for (const wall of walls) {
-                // Beri sedikit margin agar permen tidak terlalu dekat dengan dinding
                 const collisionMargin = 5; 
                 const wallCheck = {
                     x: wall.x - collisionMargin,
@@ -399,7 +395,6 @@ function loop() {
         ctx.font = "30px 'Trebuchet MS', sans-serif";
         ctx.fillText("Click START to Pay and Play!", canvas.width / 2, canvas.height / 2);
         
-        // GAMBAR DINDING (LABIRIN) agar terlihat saat menunggu
         drawWalls(); 
         
         return;
@@ -407,7 +402,8 @@ function loop() {
     
     // Hitung waktu berjalan
     const timeElapsed = Date.now() - gameStartTime;
-    const isGameActive = timeElapsed > 500; // Game dianggap aktif setelah 500ms
+    // Beri waktu 1000ms (1 detik) untuk inisialisasi agar tidak ada tabrakan instan.
+    const isGameActive = timeElapsed > 1000; 
     
     // 1. GAMBAR DINDING (LABIRIN)
     drawWalls();
@@ -416,21 +412,18 @@ function loop() {
     const newX = x + vx;
     const newY = y + vy;
 
-    // Cek tabrakan dinding sebelum bergerak (X)
     if (!checkPlayerWallCollision(newX, y)) {
         x = newX;
     } else {
-        vx = 0; // Hentikan pergerakan X jika menabrak
+        vx = 0; 
     }
     
-    // Cek tabrakan dinding sebelum bergerak (Y)
     if (!checkPlayerWallCollision(x, newY)) {
         y = newY;
     } else {
-        vy = 0; // Hentikan pergerakan Y jika menabrak
+        vy = 0; 
     }
 
-    // Batas Dinding Canvas (Perimeter)
     const perimeterMargin = WALL_THICKNESS + PLAYER_SIZE;
     if (x < perimeterMargin) { x = perimeterMargin; vx = 0; }
     if (x > canvas.width - perimeterMargin) { x = canvas.width - perimeterMargin; vx = 0; }
@@ -447,7 +440,7 @@ function loop() {
     // 5. UPDATE DAN GAMBAR GHOSTS + CEK COLLISION
     for (const ghost of ghosts) {
         if (isGameActive) {
-            // Hantu hanya bergerak dan dicek tabrakannya setelah 500ms
+            // Hantu hanya bergerak dan dicek tabrakannya setelah 1 detik
             moveGhost(ghost);
             if (checkCollision(ghost)) {
                 endGame(false); // Game Over karena tabrakan
@@ -469,18 +462,16 @@ function startGameLoop() {
     running = true;
     currentScore = 0;
     
-    // --- KRITIS: SETEL WAKTU MULAI GAME ---
+    // Setel waktu mulai game
     gameStartTime = Date.now(); 
-    // -------------------------------------
     
-    // INISIASI 3 GHOST (Dimulai dari sudut luar)
+    // INISIASI 3 GHOST
     ghosts = [
-        new Ghost(40, 40, "#FF0000", "chase", 2.0),       // Merah (Chaser)
-        new Ghost(760, 40, "#00FFFF", "random", 2.0),    // Cyan (Randomizer)
-        new Ghost(760, 560, "#FF69B4", "flee", 1.5)       // Pink (Evader)
+        new Ghost(40, 40, "#FF0000", "chase", 2.0),       
+        new Ghost(760, 40, "#00FFFF", "random", 2.0),    
+        new Ghost(760, 560, "#FF69B4", "flee", 1.5)       
     ];
     
-    // SETUP CANDY (Permen)
     setupCandy();
 
     // Reset posisi dan kecepatan player (Tengah)
@@ -502,13 +493,34 @@ function startGameLoop() {
 function endGame(isWin) {
     if (!running) return;
     
+    const timeElapsed = Date.now() - gameStartTime;
+
+    // Tambahkan GUARD KRITIS: Jika skor 0 dan game berakhir kurang dari 2 detik (terjadi instan), abaikan.
+    // Ini adalah langkah pengamanan terakhir terhadap race condition.
+    if (timeElapsed < 2000 && currentScore === 0 && !isWin) {
+        console.warn("endGame diabaikan: Panggilan terjadi terlalu cepat (<2 detik) saat inisialisasi.");
+        running = false; // Pastikan loop berhenti
+        // Reset Tombol UI:
+        document.getElementById("startOnchainBtn").disabled = false;
+        document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
+        // JANGAN tampilkan modal
+        return; 
+    }
+    
     running = false; // Hentikan loop game
     
-    if (isWin) {
-        alert(`CONGRATULATIONS! Anda memenangkan permainan dengan skor penuh: ${currentScore}`);
+    const title = isWin ? "CONGRATULATIONS!" : "GAME OVER!";
+    const message = isWin 
+        ? `Anda memenangkan permainan dengan skor penuh: ${currentScore}` 
+        : `Final Score: ${currentScore}`;
+
+    // Panggil MODAL KUSTOM (menggantikan alert())
+    if (typeof showModal === 'function') {
+        showModal(title, message);
     } else {
-        alert(`GAME OVER! Final Score: ${currentScore}`);
+        console.error("showModal tidak ditemukan. Tampilkan pesan di konsol.");
     }
+
     
     if (typeof submitFinalScore === 'function') {
         // Panggil fungsi submit ke kontrak dari web3_game.js
@@ -517,7 +529,7 @@ function endGame(isWin) {
         console.error("submitFinalScore tidak ditemukan. Transaksi skor tidak dikirim.");
     }
     
-    // Reset UI setelah modal ditutup/proses submit selesai
+    // Reset tombol start (tombol submit akan diurus di web3_game.js)
     document.getElementById("startOnchainBtn").disabled = false;
     document.getElementById("startOnchainBtn").innerText = "START GAME (0.01 SOMI)";
 }
