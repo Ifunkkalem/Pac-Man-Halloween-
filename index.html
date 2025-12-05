@@ -1,2 +1,353 @@
 <!DOCTYPE html>
-<html><head><meta charset='UTF-8'><title>Somnia Halloween</title></head><body><script>window.location.href='menu.html';</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Somnia Halloween - Pacman Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- ETHERS.JS (Needed for Wallet Connection Logic) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+
+  <style>
+    /* Styling bertema Halloween/Cyberpunk */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900;800;300&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body {
+      width: 100vw; height: 100vh; overflow: hidden;
+      /* Gradient gelap ungu ke hitam */
+      background: radial-gradient(circle at top, #2b0033, #0a0010);
+      color: #fff; display: flex; justify-content: center; align-items: center;
+    }
+    .bubble {
+      position: absolute; bottom: -100px; background: rgba(255, 140, 0, 0.2); border-radius: 50%; animation: floatUp 12s infinite ease-in;
+    }
+    @keyframes floatUp { from { transform: translateY(0); } to { transform: translateY(-120vh); } }
+    .screen {
+      z-index: 10; position: relative; text-align: center; padding: 20px;
+    }
+    h1 {
+      font-size: clamp(30px, 6vw, 42px); color: #ff8c00; text-shadow: 0 0 10px #800080, 0 0 20px #800080; margin-bottom: 8px;
+    }
+    h2 {
+      font-size: clamp(18px, 3vw, 22px); color: #c77dff; margin-bottom: 30px;
+    }
+    .menu-box {
+      background: rgba(20, 0, 30, 0.8); border: 2px solid #ff8c00; border-radius: 16px; padding: 30px 40px; box-shadow: 0 0 20px #800080; min-width: 300px; max-width: 90%;
+    }
+    .menu-box input {
+      width: 100%; padding: 10px; border-radius: 8px; border: none; margin-bottom: 12px; text-align: center; font-size: 16px; outline: none; background-color: #333; color: white;
+    }
+    .menu-box button {
+      width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; 
+      background: linear-gradient(90deg, #ff8c00, #800080); /* Orange ke Ungu */
+      color: white; transition: 0.2s;
+    }
+    .menu-box button:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 0 15px #ff8c00; }
+    .menu-box button:disabled { background: #444; cursor: not-allowed; opacity: 0.7; box-shadow: none; transform: scale(1); }
+    .wallet-box {
+      font-size: 14px; margin-bottom: 12px; color: #ffb703; word-break: break-all;
+    }
+    .hidden { display: none !important; }
+    #menuTxStatus { margin-top: 10px; color: yellow; font-size: 0.9em; }
+    .status-error { color: red !important; }
+    .status-ready { color: #00ff7f !important; }
+  </style>
+</head>
+<body>
+
+<!-- 🎈 Bubble Effects (For Aesthetics) -->
+<script>
+  for (let i = 0; i < 25; i++) {
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.style.width = bubble.style.height = Math.random() * 40 + 20 + "px";
+    bubble.style.left = Math.random() * 100 + "vw";
+    bubble.style.animationDuration = Math.random() * 6 + 6 + "s";
+    document.body.appendChild(bubble);
+  }
+</script>
+
+<!-- 🎃 MAIN MENU -->
+<div id="menuScreen" class="screen">
+  <h1>WELCOME SOMNIA HALLOWEEN</h1>
+  <h2>PAC-MAN EDITION</h2>
+
+  <div class="menu-box">
+    
+    <!-- Status Wallet -->
+    <div id="walletStatus" class="wallet-box">Memuat Status Database & Wallet...</div>
+
+    <!-- Input Nama -->
+    <input 
+      id="displayNameInput" 
+      type="text" 
+      maxlength="12" 
+      placeholder="Loading Profile..."
+      disabled
+    />
+
+    <!-- Tombol Koneksi -->
+    <button id="connectWalletBtn" disabled>CONNECT WALLET</button>
+    
+    <!-- Tombol Simpan Nama -->
+    <button id="saveNameBtn" disabled>SAVE DISPLAY NAME</button>
+    
+    <div style="height: 1px; background: rgba(255, 255, 255, 0.1); margin: 15px 0;"></div>
+    
+    <!-- Tombol Play -->
+    <button id="playBtn" disabled>PLAY GAME</button>
+    
+    <!-- Tombol Leaderboard -->
+    <button id="leaderboardBtn">LEADERBOARD</button>
+    
+    <!-- Status Transaksi di Menu -->
+    <div id="menuTxStatus"></div>
+    
+  </div>
+</div>
+
+<!-- Logika Web3 dan Menu Utama (Hanya Firestore) -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    setLogLevel('Debug');
+
+    // ====================================================================
+    // --- 1. KONFIGURASI FIREBASE (HARDCODED DENGAN API KEY ANDA) ---
+    // ====================================================================
+    // API KEY yang Anda berikan disematkan di sini
+    const hardcodedFirebaseConfig = {
+      apiKey: "AIzaSyBeHjlHJSB5R0mYJmX6h5uJ7Iwqu7zNWtA",
+      authDomain: "somnia-hallowen.firebaseapp.com",
+      projectId: "somnia-hallowen",
+      storageBucket: "somnia-hallowen.firebasestorage.app",
+      messagingSenderId: "441297353260",
+      appId: "1:441297353260:web:71343e500055d10c712f89",
+      measurementId: "G-5KMBCWQ96G"
+    };
+
+    // Variabel lingkungan dari Canvas
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    
+    let db = null;
+    let auth = null;
+    let userId = null; // ID internal Firebase (uid)
+    let walletAddress = null; // ID publik (alamat Metamask)
+    let firebaseReady = false;
+    let nameLoaded = false;
+    let firebaseError = false; 
+
+    // Elemen DOM
+    const displayNameInput = document.getElementById('displayNameInput');
+    const connectWalletBtn = document.getElementById('connectWalletBtn');
+    const saveNameBtn = document.getElementById('saveNameBtn');
+    const playBtn = document.getElementById('playBtn');
+    const walletStatusEl = document.getElementById('walletStatus');
+    const menuTxStatusEl = document.getElementById('menuTxStatus');
+
+    function formatWallet(address) {
+        if (!address) return 'Disconnected';
+        return `${address.substring(0, 6)}...${address.slice(-4)}`;
+    }
+
+    function updateUI() {
+        const connected = walletAddress !== null;
+        const nameValid = displayNameInput.value.trim().length > 0 && displayNameInput.value.trim().length <= 12;
+        const isReady = firebaseReady && nameLoaded;
+        
+        // 1. Update Status Display
+        if (firebaseError) {
+             walletStatusEl.innerHTML = `<span class="status-error">[CRITICAL ERROR]</span> Gagal koneksi Firebase.`;
+             menuTxStatusEl.textContent = "Koneksi Database GAGAL. Cek Aturan Keamanan.";
+        } else if (!isReady) {
+            walletStatusEl.innerHTML = `Status: <span class="text-yellow-400">Connecting...</span> <br> Wallet: ${formatWallet(walletAddress)}`;
+        } else {
+             const statusColor = connected ? 'status-ready' : 'text-yellow-400';
+             walletStatusEl.innerHTML = `
+                DB Status: <span class="status-ready">ONLINE</span> <br>
+                Wallet: <span class="${statusColor}">${walletAddress ? formatWallet(walletAddress) : 'Harap Hubungkan Wallet'}</span>
+            `;
+        }
+
+        // 2. Control Buttons
+        const dbOperational = !firebaseError && firebaseReady;
+
+        connectWalletBtn.disabled = !dbOperational || connected;
+        connectWalletBtn.textContent = connected ? `WALLET CONNECTED (${formatWallet(walletAddress)})` : "CONNECT WALLET";
+
+        displayNameInput.disabled = !dbOperational || !connected;
+        displayNameInput.placeholder = dbOperational ? "Enter Display Name (Max 12)" : "DB Error. Disabled.";
+        
+        saveNameBtn.disabled = !dbOperational || !connected || !nameValid;
+        
+        // Tombol Play hanya aktif jika DB operational, wallet terhubung, dan nama valid
+        playBtn.disabled = !(dbOperational && connected && nameValid); 
+        
+        if (dbOperational && connected && nameValid) {
+            playBtn.textContent = "PLAY GAME NOW";
+            menuTxStatusEl.textContent = "";
+        }
+    }
+
+    // Memuat nama dan wallet address yang tersimpan di private profile user
+    async function loadUserData() {
+        if (!db || !userId) {
+            nameLoaded = true;
+            updateUI();
+            return;
+        }
+
+        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile');
+        try {
+            const docSnap = await getDoc(docRef);
+            let name = '';
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                name = data.displayName || '';
+                walletAddress = data.wallet || null; 
+            }
+            displayNameInput.value = name;
+            nameLoaded = true;
+        } catch (e) {
+            console.error("Error loading user profile from Firestore:", e);
+            // Ini bisa terjadi jika security rules belum benar
+            nameLoaded = true; 
+        } finally {
+            updateUI();
+        }
+    }
+
+    async function initializeFirebaseAndAuth() {
+        try {
+            const app = initializeApp(hardcodedFirebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // 1. Lakukan Autentikasi
+            if (initialAuthToken) { 
+                await signInWithCustomToken(auth, initialAuthToken); 
+            } else { 
+                await signInAnonymously(auth); 
+            }
+
+            // 2. Dengarkan Status Auth
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    firebaseReady = true;
+                    loadUserData(); // Lanjut memuat data user
+                } else {
+                    throw new Error("Firebase authentication failed.");
+                }
+            });
+
+        } catch (error) {
+            console.error("Critical Error during Firebase Init/Auth:", error);
+            firebaseError = true;
+            firebaseReady = false;
+            updateUI();
+        }
+    }
+    
+    // ====================================================================
+    // --- WEB3 / METAMASK LOGIC ---
+    // ====================================================================
+
+    async function connectWallet() {
+        if (typeof window.ethereum === 'undefined') {
+            menuTxStatusEl.textContent = "Web3 (MetaMask/Ethers) tidak terdeteksi.";
+            return;
+        }
+        
+        connectWalletBtn.disabled = true;
+        connectWalletBtn.textContent = "Connecting...";
+
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            walletAddress = accounts[0]; // Set Wallet Address
+            menuTxStatusEl.textContent = `Wallet terhubung: ${formatWallet(walletAddress)}`;
+            
+            // Simpan wallet address ke private profile Firestore 
+            if (db && userId) {
+                 await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile'), { 
+                    wallet: walletAddress,
+                    lastConnect: Date.now()
+                }, { merge: true });
+            }
+
+        } catch (error) {
+            console.error("Error connecting wallet:", error);
+            menuTxStatusEl.textContent = "Koneksi dompet dibatalkan atau gagal.";
+        }
+        updateUI();
+    }
+    
+    // ====================================================================
+    // --- EVENT HANDLERS ---
+    // ====================================================================
+    
+    async function saveDisplayName() {
+        const name = displayNameInput.value.trim();
+        if (name.length < 1 || name.length > 12) {
+             menuTxStatusEl.textContent = "Nama harus 1-12 karakter.";
+             return;
+        }
+        if (!walletAddress) {
+             menuTxStatusEl.textContent = "Harap hubungkan Wallet terlebih dahulu.";
+             return;
+        }
+        if (!db || !userId) {
+             menuTxStatusEl.textContent = "ERROR: Database tidak siap. Tidak dapat menyimpan nama.";
+             return;
+        }
+        
+        saveNameBtn.disabled = true;
+        saveNameBtn.textContent = "Saving...";
+
+        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'config', 'profile');
+        try {
+            await setDoc(docRef, { 
+                displayName: name, 
+                wallet: walletAddress,
+                lastUpdate: Date.now()
+            }, { merge: true });
+            menuTxStatusEl.textContent = "Nama berhasil disimpan!";
+            nameLoaded = true;
+        } catch (e) {
+            console.error("Error saving name:", e);
+            menuTxStatusEl.textContent = "Gagal menyimpan nama ke Database. Coba lagi.";
+        }
+         
+        saveNameBtn.textContent = "EDIT DISPLAY NAME";
+        updateUI();
+    }
+    
+    function redirectToGame() {
+        // Pindahkan ke halaman game.html
+        window.location.href = 'game.html';
+    }
+    
+    function redirectToLeaderboard() {
+        // Pindahkan ke halaman leaderboard.html
+        window.location.href = 'leaderboard.html';
+    }
+
+    // Pasang Event Listeners
+    connectWalletBtn.addEventListener('click', connectWallet);
+    saveNameBtn.addEventListener('click', saveDisplayName);
+    displayNameInput.addEventListener('input', updateUI);
+    playBtn.addEventListener('click', redirectToGame);
+    leaderboardBtn.addEventListener('click', redirectToLeaderboard);
+    
+    // Mulai inisialisasi ketika window dimuat
+    window.onload = () => {
+        initializeFirebaseAndAuth();
+        updateUI();
+    }
+</script>
+
+</body>
+</html>
