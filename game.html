@@ -1,143 +1,541 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Somnia Pac-Man Halloween - Play</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- ETHERS.JS - Wajib dimuat untuk interaksi Web3 -->
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-
-<style>
-/* CSS UNTUK FIX TAMPILAN GELAP/UNSTYLED */
-html, body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  background: #050008;
-  font-family: 'Trebuchet MS', sans-serif;
-  overflow: hidden;
-  color: white; /* Default font color */
-}
-
-#root {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ===== TOP HUD (Status dan Skor) ===== */
-#topBar {
-  height: 70px;
-  background: linear-gradient(90deg, #ff7a00, #7b00ff);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  font-weight: bold;
-  box-shadow: 0 0 15px orange;
-  z-index: 10;
-}
-
-#scoreBox {
-  background: rgba(0,0,0,0.4);
-  padding: 8px 16px;
-  border-radius: 10px;
-  border: 1px solid white;
-}
-
-/* ===== GAME AREA (Canvas Container) ===== */
-#gameArea {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: radial-gradient(circle, #14001f, #000);
-}
-
-canvas {
-  background: black;
-  border: 4px solid orange;
-  border-radius: 16px;
-  box-shadow: 0 0 30px purple;
-  /* Membuat canvas responsif, tapi tetap proporsional */
-  max-width: 90%;
-  max-height: 90%;
-}
-
-/* ===== BOTTOM HUD (Tombol Kontrol) ===== */
-#bottomBar {
-  height: 90px;
-  background: #100015;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  border-top: 2px solid orange;
-  z-index: 10;
-}
-
-button {
-  padding: 12px 22px;
-  font-size: 16px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  color: white;
-  font-weight: bold;
-  background: linear-gradient(90deg, #ff8c00, #800080); /* Oranye ke Ungu */
-  box-shadow: 0 0 10px #ff8c00;
-  transition: 0.2s;
-}
-
-button:hover:not(:disabled) {
-  transform: scale(1.08);
-  box-shadow: 0 0 15px #ff8c00;
-}
-
-button:disabled {
-  background: #444;
-  cursor: not-allowed;
-  opacity: 0.6;
-  box-shadow: none;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man Halloween Labyrinth</title>
+    <!-- Tailwind CSS for styling and responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for direction arrows -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e; /* Dark background for spooky theme */
+            color: white;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #game-container {
+            max-width: 800px;
+            width: 100%;
+            margin-bottom: 1rem;
+            border: 4px solid #7B00FF; /* Border Labirin */
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(123, 0, 255, 0.5);
+        }
+        canvas {
+            display: block;
+            background-color: #000000;
+            /* Ukuran Kanvas disesuaikan dengan kontainer (800x600) */
+            width: 100%; 
+            height: auto;
+            aspect-ratio: 800 / 600;
+        }
+        .control-grid {
+            /* Grid untuk tombol, dioptimalkan untuk sentuhan mobile */
+            grid-template-areas:
+                ". up ."
+                "left center right"
+                ". down .";
+            width: 300px; /* Ukuran total tombol */
+            margin-top: 1rem;
+        }
+        .control-btn {
+            background-color: #FF6600; /* Oranye Halloween */
+            color: #1a1a2e;
+            border-radius: 9999px; /* Bentuk bulat */
+            padding: 1.5rem;
+            box-shadow: 0 4px 0 #D35400;
+            transition: all 0.1s;
+            cursor: pointer;
+            margin: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .control-btn:active {
+            box-shadow: 0 0 0 #D35400;
+            transform: translateY(4px);
+        }
+    </style>
 </head>
+<body class="min-h-screen">
 
-<body>
-<div id="root">
+    <header class="w-full max-w-xl flex justify-between items-center p-4 bg-gray-800 rounded-lg mb-4 shadow-lg">
+        <h1 class="text-xl font-bold flex items-center">
+            <span class="text-3xl mr-2">🎃</span> Halloween Maze
+        </h1>
+        <div class="text-lg">Score: <span id="score" class="font-extrabold text-yellow-400">0</span></div>
+    </header>
 
-  <!-- ✅ TOP HUD -->
-  <div id="topBar">
-    <div>🎃 Player: <span id="playerName">Loading...</span></div>
-    <div id="scoreBox">Score: <span id="score">0</span></div>
-  </div>
+    <div id="game-container">
+        <canvas id="game" width="800" height="600"></canvas>
+    </div>
 
-  <!-- ✅ GAME CANVAS -->
-  <div id="gameArea">
-    <canvas id="game" width="800" height="600"></canvas>
-  </div>
+    <!-- Mobile Controls (4 Tombol) -->
+    <div class="control-grid grid grid-cols-3 gap-2">
+        <button id="up-btn" class="control-btn" style="grid-area: up;" ontouchstart="setDirection(2)" ontouchend="stopDirection()" onmousedown="setDirection(2)" onmouseup="stopDirection()">
+            <i data-lucide="arrow-up" class="w-8 h-8"></i>
+        </button>
+        <button id="left-btn" class="control-btn" style="grid-area: left;" ontouchstart="setDirection(1)" ontouchend="stopDirection()" onmousedown="setDirection(1)" onmouseup="stopDirection()">
+            <i data-lucide="arrow-left" class="w-8 h-8"></i>
+        </button>
+        <div style="grid-area: center;"></div> <!-- Placeholder -->
+        <button id="right-btn" class="control-btn" style="grid-area: right;" ontouchstart="setDirection(0)" ontouchend="stopDirection()" onmousedown="setDirection(0)" onmouseup="stopDirection()">
+            <i data-lucide="arrow-right" class="w-8 h-8"></i>
+        </button>
+        <button id="down-btn" class="control-btn" style="grid-area: down;" ontouchstart="setDirection(3)" ontouchend="stopDirection()" onmousedown="setDirection(3)" onmouseup="stopDirection()">
+            <i data-lucide="arrow-down" class="w-8 h-8"></i>
+        </button>
+    </div>
+    <!-- Tombol Web3 (Asumsi fungsi sudah ada di scope global) -->
+    <div class="flex flex-wrap justify-center gap-4 mt-8 w-full max-w-md">
+        <button id="startOnchainBtn" onclick="startGameLoop()" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
+            START GAME (0.01 SOMI)
+        </button>
+        <button onclick="backMenu()" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-xl transition duration-150">
+            BACK TO MENU
+        </button>
+    </div>
 
-  <!-- ✅ BUTTONS -->
-  <div id="bottomBar">
-    <!-- ID startOnchainBtn untuk sinkronisasi di web3_game.js -->
-    <button id="startOnchainBtn" onclick="startOnchain()" disabled>START GAME (0.01 SOMI)</button>
-    
-    <!-- ID submitScoreBtn untuk di-disable/enable oleh game_logic.js & web3_game.js -->
-    <button id="submitScoreBtn" disabled>SUBMIT SCORE (Auto)</button> 
-    
-    <!-- backMenu() ada di game_logic.js -->
-    <button onclick="backMenu()">BACK</button>
-  </div>
+    <script>
+        // Inisialisasi Lucide icons
+        lucide.createIcons();
 
-</div>
+        // --- GAME LOGIC START ---
 
-<!-- Memuat Skrip Logika -->
-<script src="game_logic.js"></script> 
-<script src="web3_game.js"></script>
+        let running = false;
+        let currentScore = 0; 
+        const PLAYER_SPEED = 3.5; 
+        const GHOST_SIZE = 20; 
+        const PLAYER_SIZE = 30; 
+        const CANDY_VALUE = 10; 
+        
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
 
-</body>
-</html>
+        // Player State
+        let x = 400; // Posisi awal di tengah
+        let y = 300; 
+        let vx = 0; 
+        let vy = 0; 
+        let currentDirection = 0; 
+        
+        // --- MOBILE CONTROL FUNCTIONS ---
+        // 0: Right, 1: Left, 2: Up, 3: Down
+        function setDirection(direction) {
+            if (!running) return;
+            currentDirection = direction;
+            vx = 0;
+            vy = 0;
+            switch (direction) {
+                case 0: vx = PLAYER_SPEED; break; // Kanan
+                case 1: vx = -PLAYER_SPEED; break; // Kiri
+                case 2: vy = -PLAYER_SPEED; break; // Atas
+                case 3: vy = PLAYER_SPEED; break; // Bawah
+            }
+        }
 
+        function stopDirection() {
+            // Hentikan pergerakan saat tombol dilepas di mobile
+            vx = 0;
+            vy = 0;
+        }
+
+        // Menonaktifkan kontrol keyboard default (jika ingin fokus ke mobile)
+        window.removeEventListener('keydown', handleKeyDown);
+        
+        // --- WALL MANAGEMENT (LABYRINTH KOMPLEKS BARU) ---
+        const WALL_THICKNESS = 20;
+
+        // Koordinat disesuaikan dengan gambar yang diminta (800x600)
+        const walls = [
+            // 1. Perimeter (Batas Luar)
+            { x: 0, y: 0, width: 800, height: WALL_THICKNESS }, 
+            { x: 0, y: 580, width: 800, height: WALL_THICKNESS }, 
+            { x: 0, y: 0, width: WALL_THICKNESS, height: 600 }, 
+            { x: 780, y: 0, width: WALL_THICKNESS, height: 600 }, 
+            
+            // 2. Pusat Labirin
+            { x: 300, y: 280, width: 200, height: WALL_THICKNESS }, // Pusat H
+            
+            // 3. Struktur Internal (Simetris)
+            // Lengan Samping Kiri
+            { x: 100, y: 100, width: 200, height: WALL_THICKNESS }, // Atas
+            { x: 100, y: 100, width: WALL_THICKNESS, height: 100 },
+            { x: 100, y: 480, width: 200, height: WALL_THICKNESS }, // Bawah
+            { x: 100, y: 400, width: WALL_THICKNESS, height: 100 },
+
+            // Lengan Samping Kanan
+            { x: 500, y: 100, width: 200, height: WALL_THICKNESS }, // Atas
+            { x: 680, y: 100, width: WALL_THICKNESS, height: 100 },
+            { x: 500, y: 480, width: 200, height: WALL_THICKNESS }, // Bawah
+            { x: 680, y: 400, width: WALL_THICKNESS, height: 100 },
+
+            // T-Shapes Atas
+            { x: 380, y: 100, width: 40, height: WALL_THICKNESS },
+            { x: 390, y: 120, width: WALL_THICKNESS, height: 80 },
+
+            // T-Shapes Bawah
+            { x: 380, y: 480, width: 40, height: WALL_THICKNESS },
+            { x: 390, y: 400, width: WALL_THICKNESS, height: 80 },
+
+            // Inner Corners (Kiri Atas)
+            { x: 200, y: 200, width: WALL_THICKNESS, height: 80 },
+            { x: 220, y: 260, width: 80, height: WALL_THICKNESS },
+
+            // Inner Corners (Kanan Atas)
+            { x: 580, y: 200, width: WALL_THICKNESS, height: 80 },
+            { x: 500, y: 260, width: 80, height: WALL_THICKNESS },
+
+            // Inner Corners (Kiri Bawah)
+            { x: 200, y: 400, width: WALL_THICKNESS, height: 80 },
+            { x: 220, y: 400, width: 80, height: WALL_THICKNESS },
+
+            // Inner Corners (Kanan Bawah)
+            { x: 580, y: 400, width: WALL_THICKNESS, height: 80 },
+            { x: 500, y: 400, width: 80, height: WALL_THICKNESS },
+        ];
+
+
+        /**
+         * Menggambar semua dinding (Labirin).
+         */
+        function drawWalls() {
+            ctx.fillStyle = "rgba(0, 100, 255, 0.8)"; // Biru terang seperti di gambar
+            for (const wall of walls) {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            }
+        }
+
+        /**
+         * Cek tabrakan AABB antara dua kotak.
+         */
+        function checkAABBCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        /**
+         * Mencegah Player menembus dinding.
+         */
+        function checkPlayerWallCollision(newX, newY) {
+            const playerRect = {
+                x: newX - PLAYER_SIZE,
+                y: newY - PLAYER_SIZE,
+                width: 2 * PLAYER_SIZE,
+                height: 2 * PLAYER_SIZE
+            };
+
+            for (const wall of walls) {
+                if (checkAABBCollision(playerRect, wall)) {
+                    return true; 
+                }
+            }
+            return false; 
+        }
+
+
+        // --- GHOST MANAGEMENT ---
+        let ghosts = [];
+
+        class Ghost {
+            constructor(x, y, color, behavior, speed) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.behavior = behavior;
+                this.speed = speed;
+                this.radius = GHOST_SIZE;
+                this.randomMoveCooldown = 0;
+                this.vx = 0;
+                this.vy = 0;
+            }
+        }
+
+        /**
+         * Menghitung pergerakan hantu, mencegahnya menembus dinding.
+         */
+        function moveGhost(ghost) {
+            let targetX = x;
+            let targetY = y;
+            let dx = 0;
+            let dy = 0;
+
+            // Menghitung arah ke target
+            if (ghost.behavior === "chase" || ghost.behavior === "flee") {
+                dx = targetX - ghost.x;
+                dy = targetY - ghost.y;
+                
+                if (ghost.behavior === "flee") {
+                    dx *= -1;
+                    dy *= -1;
+                }
+
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > 0) {
+                    ghost.vx = (dx / distance) * ghost.speed;
+                    ghost.vy = (dy / distance) * ghost.speed;
+                }
+            } else if (ghost.behavior === "random") {
+                ghost.randomMoveCooldown--;
+                if (ghost.randomMoveCooldown <= 0) {
+                    ghost.vx = (Math.random() - 0.5) * ghost.speed * 2;
+                    ghost.vy = (Math.random() - 0.5) * ghost.speed * 2;
+                    ghost.randomMoveCooldown = 60; 
+                }
+            }
+            
+            // --- PENGECEKAN TABRAKAN DINDING UNTUK GHOST ---
+            const newX = ghost.x + ghost.vx;
+            const newY = ghost.y + ghost.vy;
+            
+            const ghostRect = {
+                x: newX - ghost.radius,
+                y: newY - ghost.radius,
+                width: 2 * ghost.radius,
+                height: 2 * ghost.radius
+            };
+            
+            let collided = false;
+            for (const wall of walls) {
+                if (checkAABBCollision(ghostRect, wall)) {
+                    collided = true;
+                    
+                    if (ghost.vx !== 0) ghost.vx *= -1;
+                    if (ghost.vy !== 0) ghost.vy *= -1;
+                    
+                    if (ghost.behavior === "random") {
+                        ghost.randomMoveCooldown = 0; 
+                    }
+                    break;
+                }
+            }
+
+            if (!collided) {
+                ghost.x = newX;
+                ghost.y = newY;
+            }
+            
+            // Batas Dinding Canvas (Perimeter dihitung sebagai Wall, jadi tidak perlu lagi)
+        }
+
+        /**
+         * Menggambar Hantu (Tampilan Halloween)
+         */
+        function drawGhost(ghost) {
+            const r = ghost.radius;
+            
+            ctx.fillStyle = ghost.color;
+            ctx.beginPath();
+            ctx.arc(ghost.x, ghost.y - r / 2, r, Math.PI, 0, false);
+            ctx.lineTo(ghost.x + r, ghost.y + r);
+            ctx.lineTo(ghost.x + r * 0.75, ghost.y + r - 5);
+            ctx.lineTo(ghost.x + r * 0.5, ghost.y + r);
+            ctx.lineTo(ghost.x + r * 0.25, ghost.y + r - 5);
+            ctx.lineTo(ghost.x, ghost.y + r);
+            ctx.lineTo(ghost.x - r * 0.25, ghost.y + r - 5);
+            ctx.lineTo(ghost.x - r * 0.5, ghost.y + r);
+            ctx.lineTo(ghost.x - r * 0.75, ghost.y + r - 5);
+            ctx.lineTo(ghost.x - r, ghost.y + r);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(ghost.x - r / 2, ghost.y - r / 2, 4, 0, 2 * Math.PI);
+            ctx.arc(ghost.x + r / 2, ghost.y - r / 2, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.fillStyle = "black";
+            const eyeDx = (x - ghost.x) / 10;
+            const eyeDy = (y - ghost.y) / 10;
+            ctx.beginPath();
+            ctx.arc(ghost.x - r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
+            ctx.arc(ghost.x + r / 2 + eyeDx, ghost.y - r / 2 + eyeDy, 2, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function checkCollision(ghost) {
+            const dx = x - ghost.x;
+            const dy = y - ghost.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < PLAYER_SIZE + ghost.radius; 
+        }
+
+
+        // --- CANDY (PERMEN) MANAGEMENT ---
+        let candy = [];
+
+        /**
+         * Menyusun permen di canvas. Memastikan permen TIDAK berada di dalam dinding.
+         */
+        function setupCandy() {
+            candy = [];
+            const rows = 15; 
+            const cols = 20; 
+            const paddingX = 40;
+            const paddingY = 40;
+            const spacingX = (canvas.width - 2 * paddingX) / (cols - 1);
+            const spacingY = (canvas.height - 2 * paddingY) / (rows - 1);
+            
+            const candyRectSize = 10; 
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const candyX = paddingX + c * spacingX;
+                    const candyY = paddingY + r * spacingY;
+                    
+                    // Hindari menaruh permen di area start player (Pusat: 400, 300)
+                    if (Math.abs(candyX - 400) < 60 && Math.abs(candyY - 300) < 60) continue; 
+                    
+                    // Cek apakah permen bertabrakan dengan DINDING
+                    let isInsideWall = false;
+                    const candyRect = {
+                        x: candyX - candyRectSize / 2, 
+                        y: candyY - candyRectSize / 2, 
+                        width: candyRectSize, 
+                        height: candyRectSize
+                    };
+
+                    for (const wall of walls) {
+                        const collisionMargin = 5; 
+                        const wallCheck = {
+                            x: wall.x - collisionMargin,
+                            y: wall.y - collisionMargin,
+                            width: wall.width + 2 * collisionMargin,
+                            height: wall.height + 2 * collisionMargin
+                        };
+                        
+                        if (checkAABBCollision(candyRect, wallCheck)) {
+                            isInsideWall = true;
+                            break;
+                        }
+                    }
+
+                    if (!isInsideWall) {
+                        candy.push({ x: candyX, y: candyY });
+                    }
+                }
+            }
+        }
+
+        /**
+         * Menggambar semua permen (labu/pumpkin) yang tersisa.
+         */
+        function drawCandy() {
+            ctx.fillStyle = "orange";
+            for (const item of candy) {
+                const radius = 6;
+                ctx.beginPath();
+                ctx.arc(item.x, item.y, radius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "green";
+                ctx.fillRect(item.x - 1, item.y - radius - 3, 2, 3);
+                ctx.fillStyle = "orange"; 
+            }
+        }
+
+        /**
+         * Cek apakah Pac-Man mengumpulkan permen.
+         */
+        function checkCandyCollection() {
+            for (let i = candy.length - 1; i >= 0; i--) {
+                const item = candy[i];
+                const dx = x - item.x;
+                const dy = y - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < PLAYER_SIZE) {
+                    currentScore += CANDY_VALUE;
+                    candy.splice(i, 1); 
+
+                    if (candy.length === 0) {
+                        endGame(true); 
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+
+        // --- PLAYER DRAW FUNCTIONS ---
+
+        function drawPacman() {
+            const radius = PLAYER_SIZE;
+            let startAngle = 0;
+            let endAngle = 2 * Math.PI;
+
+            // Animasi mulut
+            const mouthOpenness = Math.sin(Date.now() / 100) * 0.2 + 0.5;
+            const mouthAngle = mouthOpenness * Math.PI / 4;
+
+            switch (currentDirection) {
+                case 0: // Kanan
+                    startAngle = mouthAngle;
+                    endAngle = 2 * Math.PI - mouthAngle;
+                    break;
+                case 1: // Kiri
+                    startAngle = Math.PI + mouthAngle;
+                    endAngle = 3 * Math.PI - mouthAngle;
+                    break;
+                case 2: // Atas
+                    startAngle = 1.5 * Math.PI + mouthAngle;
+                    endAngle = 3.5 * Math.PI - mouthAngle;
+                    break;
+                case 3: // Bawah
+                    startAngle = 0.5 * Math.PI + mouthAngle;
+                    endAngle = 2.5 * Math.PI - mouthAngle;
+                    break;
+            }
+            
+            ctx.fillStyle = "yellow";
+            ctx.beginPath();
+            ctx.arc(x, y, radius, startAngle, endAngle);
+            ctx.lineTo(x, y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+
+        /**
+         * Game Loop Utama
+         */
+        function loop() {
+            requestAnimationFrame(loop);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!running) {
+                ctx.fillStyle = "white";
+                ctx.textAlign = "center";
+                ctx.font = "30px 'Inter', sans-serif";
+                ctx.fillText("Click START to Play!", canvas.width / 2, canvas.height / 2);
+                return;
+            }
+            
+            // 1. GAMBAR DINDING (LABIRIN)
+            drawWalls();
+
+            // 2. UPDATE POSISI PLAYER & BATAS
+            const newX = x + vx;
+            const newY = y + vy;
+
+            // Cek tabrakan dinding sebelum bergerak (X)
+            if (!checkPlayerWallCollision(newX, y)) {
+                x = newX;
+            } else {
+                vx = 0; 
+            }
+            
+            // Cek tabrakan dinding sebelum bergerak (Y)
+            if (!checkPlayerWallCollision(x, newY))
