@@ -1,1147 +1,834 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOMNIA CHRISTMAS QUEST - PAC-MAN</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <title>Somnia Christmas Quest: Web3 Arcade</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Konfigurasi Tailwind untuk tema Natal yang Ikonik
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'christmas-red': '#C91010', 
-                        'christmas-green': '#0B6623', 
-                        'christmas-light-green': '#38761D', 
-                        'christmas-snow': '#FFFFFF', 
-                        'christmas-gold': '#FFD700', 
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        /* --- General Theme & Fonts --- */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Mountains+of+Christmas:wght@400;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            color: var(--christmas-snow); 
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            background-color: #0d3625; /* Deep Festive Green */
+            color: #ffffff;
             min-height: 100vh;
-            padding: 20px 10px;
-            
-            /* Latar Belakang Merah Cerah dengan Tekstur */
-            background-color: #E84D4D; 
-            background-image: repeating-linear-gradient(
-                45deg,
-                rgba(255, 255, 255, 0.1) 0,
-                rgba(255, 255, 255, 0.1) 10px,
-                transparent 10px,
-                transparent 20px
-            ); 
+            position: relative;
+            overflow: hidden; 
         }
         
-        /* BINGKAI UTAMA (GAME CONTAINER) */
-        .game-container {
-            width: 100%;
-            max-width: 480px;
-            background-color: var(--christmas-green); 
-            color: var(--christmas-snow); 
-            
-            /* Border Berlapis (Simulasi Pita/Candy Cane) */
-            border: 8px solid var(--christmas-snow); 
-            box-shadow: 
-                0 0 0 4px var(--christmas-red), 
-                0 0 30px rgba(255, 255, 255, 0.8); 
-                
-            padding: 30px; 
-            border-radius: 1.5rem; 
+        /* --- Snow Effect --- */
+        .snow {
+            position: absolute;
+            top: -10px;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.8;
+            z-index: 100; /* Ensure snow is above all content */
+            filter: blur(0.5px); /* Added blur for softer look */
+            animation: snowFall linear infinite;
+        }
+        @keyframes snowFall {
+            from { transform: translateY(0); }
+            to { transform: translateY(120vh); }
+        }
+
+        /* --- Layout & Components --- */
+        #container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+            z-index: 10; /* Above snow */
+        }
+        .sidebar {
+            width: 200px;
+            min-width: 200px;
+            background-color: #0a2d1f; 
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.6);
             display: flex;
             flex-direction: column;
-            align-items: center;
-            position: relative; 
-            z-index: 10;
+            padding: 1rem;
         }
-        
-        /* JUDUL */
-        .main-title {
-            font-size: 2.75rem;
-            line-height: 1;
-            font-weight: 900;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            color: var(--christmas-snow); 
-            text-shadow: 
-                2px 2px 0 var(--christmas-red), 
-                0 0 15px rgba(255, 255, 255, 0.8); 
-        }
-
-        /* SUBTITLE */
-        .sub-title {
-            font-size: 1.25rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            color: var(--christmas-gold); 
-            font-weight: 700;
-        }
-
-        /* BINGKAI GAME (KANVAS) */
-        canvas {
-            background-color: #000000;
-            display: block;
-            border: 4px solid var(--christmas-red); 
-            border-radius: 0.5rem;
-            margin-bottom: 20px;
-            touch-action: none; 
-            box-shadow: 0 0 15px var(--christmas-red); 
-        }
-        
-        /* TOMBOL AKSI */
-        .btn-action {
-            background-color: var(--christmas-red);
-            color: var(--christmas-snow); 
-            padding: 16px 24px;
-            border-radius: 1rem; 
-            font-weight: 900;
-            text-transform: uppercase;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 15px;
-            border: 3px solid var(--christmas-light-green); 
-            box-shadow: 0 6px 0 var(--christmas-light-green), 0 0 20px rgba(255, 255, 255, 0.7);
-            position: relative;
-        }
-
-        .btn-action.active-glow {
-            background-color: var(--christmas-light-green); 
-            border-color: var(--christmas-snow);
-            box-shadow: 0 6px 0 var(--christmas-red), 0 0 25px var(--christmas-snow); 
-        }
-        
-        /* Status/Error Button (Status DB) */
-        .btn-status {
-            background-color: var(--christmas-snow); 
-            color: var(--christmas-red); 
-            padding: 14px 24px;
-            border-radius: 0.75rem; 
-            font-weight: 700;
-            width: 100%;
-            margin-bottom: 15px;
-            border: 2px solid var(--christmas-green); 
-            cursor: default;
-            box-shadow: 0 4px 0 var(--christmas-green);
-        }
-        .btn-status #playerName {
-            color: var(--christmas-green); 
-        }
-
-        .btn-action:hover:not(:disabled), .btn-action:focus:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 0 var(--christmas-light-green), 0 0 30px var(--christmas-snow);
-        }
-        .btn-action:active:not(:disabled) {
-            transform: translateY(2px);
-            box-shadow: 0 2px 0 var(--christmas-light-green);
-        }
-        
-        .btn-action:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            filter: grayscale(0.5);
-            background-color: #A0A0A0 !important;
-            border-color: #606060 !important;
-            color: #E0E0E0 !important;
-            box-shadow: 0 4px 0 #606060 !important;
-        }
-
-        /* D-PAD */
-        .dpad-container {
-            display: grid;
-            grid-template-areas:
-                ". up ."
-                "left center right"
-                ". down .";
-            width: 150px;
-            height: 150px;
-            margin: 20px 0;
-            background-color: var(--christmas-snow); 
-            border-radius: 1rem;
-            padding: 5px;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
-        }
-        .dpad-btn {
-            grid-area: var(--dir);
-            background-color: var(--christmas-red); 
-            color: var(--christmas-snow); 
-            border: 2px solid var(--christmas-green); 
-            border-radius: 0.5rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: all 0.1s;
-            box-shadow: 0 4px 0 var(--christmas-green);
-        }
-        .dpad-btn:active {
-            background-color: var(--christmas-green); 
-            color: var(--christmas-snow);
-            transform: translateY(2px);
-            box-shadow: 0 2px 0 var(--christmas-red);
-        }
-        
-        /* MODAL STYLES */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background-color: var(--christmas-snow); 
-            color: #333;
-            border: 4px solid var(--christmas-green); 
-            border-radius: 1rem;
-            padding: 30px;
-            text-align: center;
-            max-width: 90%;
-            width: 400px;
-            box-shadow: 0 0 20px var(--christmas-red); 
-        }
-        .modal-title {
-            font-size: 1.75rem;
-            font-weight: 900;
-            color: var(--christmas-red); 
-            margin-bottom: 10px;
-        }
-        .modal-message {
-            margin-bottom: 20px;
-            color: #333; 
-        }
-        .modal-leaderboard-content {
-            background-color: #F0FFF0; 
-            padding: 10px;
-            border-radius: 0.5rem;
-            max-height: 300px;
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            background-color: #123e2d; 
             overflow-y: auto;
-            margin-top: 15px;
-            border: 1px solid var(--christmas-green);
         }
-        .leaderboard-item {
+        
+        .nav-btn {
+            @apply flex items-center p-3 w-full rounded-xl text-left transition duration-200 ease-in-out font-semibold text-lg hover:bg-red-700 hover:shadow-lg;
+            color: #ffffff;
+            background-color: #8c2727; /* Deep Red Button */
+            margin-top: 0.75rem;
+        }
+        .nav-btn.active {
+            @apply bg-red-600 shadow-xl border-l-4 border-yellow-300;
+        }
+        .nav-btn svg {
+            @apply mr-3;
+        }
+
+        /* Candy Cane Border for Game */
+        .game-canvas-area {
+            height: 60vh;
+            max-height: 600px; /* Batasi tinggi untuk tampilan yang lebih baik */
+            background-color: #000000;
+            border: 5px solid #ff0000; 
+            border-image: linear-gradient(45deg, #ff0000 25%, #ffffff 25%, #ffffff 50%, #ff0000 50%, #ff0000 75%, #ffffff 75%); 
+            border-image-slice: 1;
+            border-image-width: 15px;
+            box-shadow: 0 0 35px rgba(255, 69, 0, 0.9);
+            animation: pulse-shadow 2s infinite alternate;
             display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px dashed var(--christmas-red);
-        }
-        .leaderboard-item:last-child {
-            border-bottom: none;
-        }
-        .leaderboard-score {
-            color: var(--christmas-red);
-            font-weight: 900;
-        }
-        .leaderboard-name {
-            color: var(--christmas-green);
-            font-weight: 700;
-        }
-
-        /* === EFEK SALJU TURUN (SNOWFALL) === */
-        #snow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 5; 
-        }
-
-        #snow:before, #snow:after {
-            content: "";
-            position: fixed;
-            width: 100vw;
-            height: 100vh;
-            filter: blur(0.5px);
-            opacity: 0.9;
-            background-image: radial-gradient(white 1px, transparent 1px);
-            background-size: 20px 20px;
+            justify-content: center;
+            align-items: center;
         }
         
-        #snow:before {
-            animation: snow-fall 15s linear infinite;
+        /* Canvas Styling */
+        #pacmanCanvas {
+            background-color: #0d3625; /* Warna labirin */
+            display: block;
+            border-radius: 8px;
         }
 
-        #snow:after {
-            animation: snow-fall 25s linear infinite;
-            background-size: 30px 30px;
-            opacity: 0.7;
-        }
-        
-        /* Animasi Salju */
-        @keyframes snow-fall {
-            0% {
-                transform: translateY(0);
-            }
-            100% {
-                transform: translateY(100vh); 
-            }
+        @keyframes pulse-shadow {
+            from { box-shadow: 0 0 30px rgba(255, 69, 0, 0.7); }
+            to { box-shadow: 0 0 40px rgba(255, 255, 0, 0.9); }
         }
     </style>
-</head>
-<body class="p-4 sm:p-8">
-
-    <!-- Efek Salju (Z-index 5) -->
-    <div id="snow"></div>
-
-    <div id="startScreen" class="game-container min-h-[500px]">
-        <h1 class="main-title text-4xl sm:text-5xl">
-            SELAMAT DATANG DI SOMNIA
-        </h1>
-        <p class="sub-title">CHRISTMAS QUEST EDITION</p>
-
-        <div class="space-y-4 w-full">
-            
-            <!-- 1. DB Status/Error Button -->
-            <button id="dbStatusContainer" disabled class="btn-status" title="Status Koneksi Firebase">
-                <p id="dbStatus" class="text-sm font-bold">
-                    Memuat Koneksi Database...
-                </p>
-                <p id="playerName" class="text-xs mt-1">
-                    Menunggu Lingkungan (Host) Mengirim Data.
-                </p>
-            </button>
-            
-            <!-- 2. CONNECT WALLET -->
-            <button id="connectWalletBtn" class="btn-action active-glow" onclick="startOnchain()">
-                CONNECT WALLET
-            </button>
-            
-            <!-- 3. SAVE DISPLAY NAME -->
-            <button id="saveDisplayNameBtn" class="btn-action" disabled>
-                SAVE DISPLAY NAME
-            </button>
-            
-            <!-- 4. PLAY GAME -->
-            <button id="startGameBtn" class="btn-action" disabled>
-                PLAY GAME
-            </button>
-            
-            <!-- 5. LEADERBOARD -->
-            <button id="leaderboardBtn" class="btn-action" onclick="showLeaderboardModal()">
-                LEADERBOARD
-            </button>
-        </div>
-        
-    </div>
-
-    <div id="gameScreen" class="game-container hidden">
-        <div class="w-full flex justify-between items-center mb-3 text-sm">
-            <div class="text-sm text-christmas-snow">Player: <span id="playerNameGame" class="font-bold text-christmas-gold"></span></div>
-            <div class="text-xl font-bold text-christmas-snow">SCORE: <span id="scoreDisplay" class="text-christmas-gold">0</span></div>
-        </div>
-        
-        <canvas id="gameCanvas" width="440" height="480"></canvas>
-
-        <div class="dpad-container">
-            <button class="dpad-btn" style="--dir: up;" ontouchstart="handleMovement('up')" ontouchend="stopMovement()" onclick="handleMovement('up')">▲</button>
-            <button class="dpad-btn" style="--dir: left;" ontouchstart="handleMovement('left')" ontouchend="stopMovement()" onclick="handleMovement('left')">◀</button>
-            <div class="dpad-btn" style="--dir: center;"></div>
-            <button class="dpad-btn" style="--dir: right;" ontouchstart="handleMovement('right')" ontouchend="stopMovement()" onclick="handleMovement('right')">►</button>
-            <button class="dpad-btn" style="--dir: down;" ontouchstart="handleMovement('down')" ontouchend="stopMovement()" onclick="handleMovement('down')">▼</button>
-        </div>
-
-        <button id="backMenuBtn" class="btn-action w-full">BACK TO MENU</button>
-    </div>
-
-    <!-- Modal Kustom (Untuk Error, Game Over, dll.) -->
-    <div id="customModal" class="modal-overlay" onclick="closeModal(event)">
-        <div class="modal-content">
-            <h2 id="modalTitle" class="modal-title">Game Over!</h2>
-            <p id="modalMessage" class="modal-message">Skor Anda: 0</p>
-            <button id="modalCloseBtn" class="btn-action active-glow" onclick="document.getElementById('customModal').style.display='none'">TUTUP</button>
-        </div>
-    </div>
-    
-    <!-- Modal Leaderboard -->
-    <div id="leaderboardModal" class="modal-overlay" onclick="closeModal(event)">
-        <div class="modal-content">
-            <h2 class="modal-title">Leaderboard Somnia Christmas</h2>
-            <p class="modal-message text-christmas-red">Skor 10 Tertinggi</p>
-            <div id="leaderboardList" class="modal-leaderboard-content">
-                <!-- Data Leaderboard akan di-inject di sini -->
-                <p class="text-center text-gray-400">Memuat data...</p>
-            </div>
-            <button class="btn-action active-glow mt-4" onclick="document.getElementById('leaderboardModal').style.display='none'">TUTUP</button>
-        </div>
-    </div>
-
-    <!-- SKRIP UTAMA: GABUNGAN FIREBASE/WEB3 DAN LOGIKA GAME -->
+    <!-- Load Firebase SDKs -->
     <script type="module">
-        // Import Firebase SDK (Versi yang sudah diuji)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // --- VARIABEL UI & NAVIGASI ---
-        const startScreen = document.getElementById('startScreen');
-        const gameScreen = document.getElementById('gameScreen');
-        const startGameBtn = document.getElementById('startGameBtn');
-        const connectWalletBtn = document.getElementById('connectWalletBtn');
-        const backMenuButton = document.getElementById('backMenuBtn');
-        const saveDisplayNameBtn = document.getElementById('saveDisplayNameBtn');
-        const leaderboardList = document.getElementById('leaderboardList');
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('scoreDisplay');
-        const playerNameGame = document.getElementById('playerNameGame');
-        const modalOverlay = document.getElementById('customModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalMessage = document.getElementById('modalMessage');
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            limit, 
+            orderBy,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Elemen Status DB
-        const dbStatusElement = document.getElementById('dbStatus');
-        const playerNameElement = document.getElementById('playerName');
-        const dbStatusContainer = document.getElementById('dbStatusContainer');
+        // Set Firestore log level to Debug
+        setLogLevel('Debug');
 
-        // --- VARIABEL FIREBASE/WEB3 ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'somnia-default-app-id';
-        let firebaseConfig = null; // Akan diisi saat inisialisasi
-        let initialAuthToken = null; // Akan diisi saat inisialisasi
+        // Global variables from the Canvas environment (MUST BE USED)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'somnia-christmas-quest';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+        let currentUserId = null;
+        let currentDisplayName = "Gingerbread Fan";
+        let isAuthReady = false;
+        let isDbReady = false;
+        let currentView = 'preview'; 
         
-        let app;
-        let db;
-        let auth;
-        let userId = null;
-        let isAuthReady = false; 
+        // --- WEB3 SIMULATION STATE ---
         let isWalletConnected = false;
-        let displayName = localStorage.getItem('displayName') || "Player Anon";
+        let somiBalance = 0.00;
+        let hasPaidForGame = false;
+        let gameActive = false;
+        let currentScore = 0;
+        const COST_TO_PLAY = 0.01; // ETH cost
 
-        // --- VARIABEL GAME ---
-        const TILE_SIZE = 20; 
-        const GRID_WIDTH = 22;
-        const GRID_HEIGHT = 24;
-        const CANVAS_WIDTH = GRID_WIDTH * TILE_SIZE;
-        const CANVAS_HEIGHT = GRID_HEIGHT * TILE_SIZE;
+        // --- GAME STATE VARIABLES (NEW) ---
+        let canvas, ctx;
+        let tileSize = 20;
+        let player = { x: 1, y: 1, dx: 0, dy: 0, radius: 8, color: 'yellow', angle: 0, mouthOpen: 0 };
+        let gameLoopId = null;
+        let pelletsRemaining = 0;
         
-        canvas.width = CANVAS_WIDTH;
-        canvas.height = CANVAS_HEIGHT;
-
-        let playerX, playerY;
-        let score = 0;
-        let gameLoopId;
-        let gameRunning = false;
-        let nextDirection = 'right'; 
-        let currentDirection = 'right'; 
-        let movementInterval = null;
-        const SPEED_MS = 200; // Kecepatan pergerakan (dibuat sedikit lebih lambat)
-
-        // Skema Peta (Maze)
-        const initialMaze = [
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,1],
-            [1,2,1,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,2,1],
-            [1,3,1,1,1,2,1,1,1,2,2,2,2,1,1,1,2,1,1,1,3,1], 
-            [1,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,1],
-            [1,1,1,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,1,1],
-            [1,1,1,1,1,2,1,4,0,0,0,0,0,0,4,1,2,1,1,1,1,1], 
-            [1,1,1,1,1,2,1,0,0,0,0,0,0,0,0,1,2,1,1,1,1,1], 
-            [1,1,1,1,1,2,1,0,0,0,0,0,0,0,0,1,2,1,1,1,1,1],
-            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-            [1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1],
-            [1,2,2,2,1,2,2,2,2,2,2,0,2,2,2,2,2,1,2,2,1], 
-            [1,1,1,2,1,1,1,1,1,1,1,0,1,1,1,1,1,1,2,1,1],
-            [1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1],
-            [1,2,2,2,2,2,1,1,1,2,1,1,2,1,1,1,2,2,2,2,1],
-            [1,2,1,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,2,1],
-            [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        // 0: Wall, 1: Path/Pellet, 2: Empty Path
+        const originalMap = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0],
+            [0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,1,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,1,0,0,1,0],
+            [0,1,1,1,1,0,1,1,1,1,1,1,1,1,0,1,1,1,1,0],
+            [0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,0,0],
+            [0,0,0,0,1,0,1,1,1,0,0,1,1,1,0,1,0,0,0,0],
+            [0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         ];
-        
-        let maze = initialMaze.map(row => [...row]); 
-        
-        // Hantu
-        let ghosts = [
-            { x: 10, y: 6, color: 'rgb(255, 69, 0)', dir: 'left', speed: 1, isFrightened: false }, 
-            { x: 11, y: 6, color: 'rgb(0, 255, 255)', dir: 'right', speed: 1, isFrightened: false }, 
-            { x: 9, y: 7, color: 'rgb(255, 184, 255)', dir: 'up', speed: 1, isFrightened: false }, 
-            { x: 12, y: 7, color: 'rgb(255, 184, 82)', dir: 'down', speed: 1, isFrightened: false } 
-        ];
-        
-        let frightenedTimeout = null;
-        let lastUpdateTime = 0;
-        const GHOST_MOVE_INTERVAL = 300; 
+        let map; // Map working copy
 
-        // --- FUNGSI UTILITY UI/NAVIGASI ---
-        function switchToScreen(screenId) {
-            startScreen.classList.add('hidden');
-            gameScreen.classList.add('hidden');
-            document.getElementById(screenId).classList.remove('hidden');
-        }
+        // --- UTILITY FUNCTIONS (Modal) ---
+        function showMessageModal(title, message, isError = false) {
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const modalContainer = document.getElementById('messageModal');
 
-        function closeModal(event) {
-            if (event.target.classList.contains('modal-overlay')) {
-                event.target.style.display = 'none';
-            }
-        }
-        
-        // Update Status Firebase UI
-        function updateFirebaseStatusUI(statusMessage, playerText, isReady) {
-            dbStatusElement.innerText = statusMessage;
-            playerNameElement.innerText = playerText;
+            modalTitle.textContent = title;
+            modalBody.innerHTML = message;
             
-            if (isReady) {
-                dbStatusContainer.style.backgroundColor = 'var(--christmas-snow)'; 
-                dbStatusContainer.style.color = 'var(--christmas-red)'; 
-                dbStatusContainer.style.borderColor = 'var(--christmas-green)'; 
-                dbStatusContainer.style.boxShadow = '0 4px 0 var(--christmas-green)';
-                playerNameElement.style.color = 'var(--christmas-green)'; 
-            } else {
-                dbStatusContainer.style.backgroundColor = 'var(--christmas-red)';
-                dbStatusContainer.style.color = 'var(--christmas-snow)';
-                dbStatusContainer.style.borderColor = 'var(--christmas-snow)';
-                dbStatusContainer.style.boxShadow = '0 4px 0 var(--christmas-snow)';
-                playerNameElement.style.color = 'var(--christmas-gold)'; 
-            }
+            const card = modalContainer.querySelector('.modal-card');
+            card.classList.toggle('border-red-500', isError);
+            card.classList.toggle('border-green-500', !isError);
+
+            modalContainer.classList.remove('hidden');
         }
 
-        // Update Status Tombol Connect Wallet
-        function updateConnectButtonUI(isConnected) {
-            if (isConnected) {
-                connectWalletBtn.innerText = "WALLET CONNECTED (SIMULASI)";
-                connectWalletBtn.disabled = true;
-                connectWalletBtn.classList.remove('active-glow');
-                connectWalletBtn.style.backgroundColor = 'var(--christmas-green)'; 
-                connectWalletBtn.style.borderColor = 'var(--christmas-snow)';
-                connectWalletBtn.style.boxShadow = '0 6px 0 var(--christmas-red)';
-                if (isAuthReady) {
-                    startGameBtn.disabled = false;
+        function hideMessageModal() {
+            document.getElementById('messageModal').classList.add('hidden');
+        }
+        window.hideMessageModal = hideMessageModal;
+
+        // --- VIEW MANAGEMENT ---
+        function renderView(viewName) {
+            currentView = viewName;
+            
+            ['preview', 'game', 'leaderboard'].forEach(view => {
+                const el = document.getElementById(view + 'View');
+                if (el) {
+                    el.classList.toggle('hidden', view !== viewName);
                 }
-            } else {
-                connectWalletBtn.innerText = "CONNECT WALLET";
-                connectWalletBtn.disabled = false;
-                connectWalletBtn.classList.add('active-glow');
-                connectWalletBtn.style.backgroundColor = ''; 
-                connectWalletBtn.style.borderColor = ''; 
-                connectWalletBtn.style.boxShadow = ''; 
-                startGameBtn.disabled = true;
+            });
+
+            ['connectWalletBtn', 'playGameBtn', 'leaderboardBtn'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.classList.remove('active');
+                }
+            });
+
+            if (viewName === 'game') {
+                document.getElementById('playGameBtn').classList.add('active');
+                resetGameDisplay();
+            } else if (viewName === 'leaderboard') {
+                document.getElementById('leaderboardBtn').classList.add('active');
+                if (isDbReady) fetchLeaderboard();
+            } else if (viewName === 'preview') {
+                document.getElementById('playGameBtn').classList.remove('active');
+                document.getElementById('leaderboardBtn').classList.remove('active');
             }
         }
-        
-        // Tampilkan Modal
-        function showCustomModal(title, message) {
-            modalTitle.innerText = title;
-            modalMessage.innerHTML = message;
-            modalOverlay.style.display = 'flex';
-        }
-        window.showCustomModal = showCustomModal; 
+        window.renderView = renderView;
 
-        // --- FUNGSI FIREBASE/WEB3 ---
-
-        async function initializeFirebase() {
-            // Ambil variabel global dari Window (Lingkungan Host)
-            firebaseConfig = window.__firebase_config ? JSON.parse(window.__firebase_config) : null;
-            initialAuthToken = window.__initial_auth_token || null;
-            
-            // Pembaruan Status Awal
-            updateFirebaseStatusUI("MEMERIKSA KONFIGURASI", "Memulai otentikasi...", false);
-
-            if (!firebaseConfig) {
-                updateFirebaseStatusUI(
-                    "[KESALAHAN KONFIGURASI KRITIS]", 
-                    "Variabel Firebase (__firebase_config) tidak terdefinisi. Tidak dapat terhubung ke Leaderboard/Web3. Menggunakan mode Anonim/Lokal.", 
-                    false
-                );
-                console.error("Kesalahan: Variabel __firebase_config hilang atau tidak valid. Berjalan dalam mode Anonim/Lokal.");
-                
-                // Jika config tidak ada, kita masih bisa melanjutkan dengan anonim.
-                isAuthReady = true;
-                if (isWalletConnected) { startGameBtn.disabled = false; }
-                saveDisplayNameBtn.disabled = false;
-                return; 
-            }
-
+        // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+        async function initApp() {
             try {
+                if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Firebase configuration not found.");
+                }
+                
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        userId = user.uid;
-                        
-                        // Set display name dari localStorage atau UID
-                        if (!localStorage.getItem('displayName')) {
-                            displayName = "User#" + userId.substring(0, 6);
-                            localStorage.setItem('displayName', displayName); 
-                        } else {
-                            displayName = localStorage.getItem('displayName');
-                        }
-                        
-                        isAuthReady = true;
-                        updateFirebaseStatusUI("KONEKSI BERHASIL", `ID Pemain: ${displayName} (${userId.substring(0, 8)}...)`, true);
-                        
-                        saveDisplayNameBtn.disabled = false;
-                        
-                        if (isWalletConnected) {
-                             startGameBtn.disabled = false;
-                        }
-                        
-                        listenToLeaderboard();
-                        
+                        currentUserId = user.uid;
                     } else {
-                        userId = null;
-                        isAuthReady = true; 
-                        updateFirebaseStatusUI("[Gagal Otentikasi]", "Tidak dapat masuk. Silakan muat ulang.", false);
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
                     }
+                    isAuthReady = true;
+                    isDbReady = true;
+                    updateUIState();
+                    // Load the default preview view after auth
+                    renderView('preview'); 
                 });
-                
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
 
+                document.getElementById('criticalError').classList.add('hidden');
             } catch (error) {
-                console.error("Gagal saat inisialisasi atau otentikasi Firebase:", error);
-                updateFirebaseStatusUI("[ERROR KRITIS]", `Kode: ${error.code} | Pesan: ${error.message}`, false);
+                console.error("[CRITICAL ERROR] Failed to initialize Firebase:", error);
+                document.getElementById('criticalError').classList.remove('hidden');
+                document.getElementById('criticalError').textContent = `[CRITICAL ERROR] Initialization failed: ${error.message}`;
             }
         }
 
-        // Simulasi Wallet
-        window.startOnchain = () => {
-            if (typeof ethers !== 'undefined' && ethers.providers) {
-                isWalletConnected = true;
-                updateConnectButtonUI(true);
-                
-                if (isAuthReady) {
-                    startGameBtn.disabled = false;
-                }
-            } else {
-                showCustomModal("Simulasi Gagal", "Ethers.js gagal dimuat. Coba muat ulang halaman.");
-            }
-        };
-
-        // Menyimpan Nama Tampilan
-        saveDisplayNameBtn.addEventListener('click', async () => {
-            const input = prompt("Masukkan nama tampilan Anda (maks 15 karakter):");
-            if (input && input.trim().length > 0) {
-                const newName = input.trim().substring(0, 15);
-                displayName = newName;
-                localStorage.setItem('displayName', newName);
-                
-                if (db && userId) {
-                    try {
-                        // Simpan display name ke koleksi public
-                        const userRef = doc(db, `artifacts/${appId}/public/data/users/${userId}`);
-                        await setDoc(userRef, { displayName: newName, lastUpdate: new Date().toISOString() }, { merge: true });
-                        updateFirebaseStatusUI("KONEKSI BERHASIL", `ID Pemain: ${newName} (${userId.substring(0, 8)}...)`, true);
-                    } catch (e) {
-                        console.error("Error menyimpan nama tampilan:", e);
-                        showCustomModal("Error", "Gagal menyimpan nama tampilan ke database.");
-                    }
-                } else {
-                     // Update UI lokal
-                     updateFirebaseStatusUI("[MODE LOKAL/ANONIM]", `Nama Tampilan Lokal: ${newName}`, false);
-                }
-            }
-        });
-
-        // Menyimpan Skor
-        window.saveScore = async (score) => {
-            if (!db || !userId || !firebaseConfig) {
-                // FALLBACK LOKAL (Jika Firebase Gagal/Anonim)
-                console.warn("Database belum siap atau konfigurasi hilang. Menyimpan skor secara lokal.");
-                let highscore = parseInt(localStorage.getItem('pacman_highscore')) || 0;
-                if (score > highscore) {
-                    localStorage.setItem('pacman_highscore', score);
-                    // Tidak menampilkan modal karena modal game over/win sudah muncul
-                }
+        // --- WEB3 SIMULATION LOGIC ---
+        function connectWallet() {
+            // This simulates MetaMask connection success
+            if (isWalletConnected) {
+                showMessageModal("Info", `Wallet is already connected. SOMI Balance: ${somiBalance.toFixed(2)}.`);
                 return;
             }
 
-            try {
-                // Simpan skor ke koleksi public
-                const userRef = doc(db, `artifacts/${appId}/public/data/users/${userId}`);
-                
-                await setDoc(userRef, { 
-                    displayName: displayName, 
-                    score: score, 
-                    lastPlayed: new Date().toISOString() 
-                }, { merge: true });
-                
-                console.log(`Skor ${score} berhasil disimpan ke Firestore.`);
-                
-            } catch (e) {
-                console.error("Gagal menyimpan skor ke Firestore:", e);
-                showCustomModal("Error Database", "Gagal menyimpan skor tertinggi Anda.");
+            isWalletConnected = true;
+            somiBalance = (Math.random() * 100 + 10).toFixed(2); // Ensure positive balance for display
+            showMessageModal("Connection Successful!", `Wallet connected. Your SOMI Balance: ${somiBalance} SOMI.`);
+            updateUIState();
+        }
+        window.connectWallet = connectWallet;
+
+        async function payToPlay() {
+            if (!isWalletConnected) {
+                showMessageModal("Attention", "Please connect your Wallet first.", true);
+                return;
             }
-        };
-
-        // Listener Leaderboard
-        function listenToLeaderboard() {
-            if (!db) return;
             
-            const leaderboardCollectionRef = collection(db, `artifacts/${appId}/public/data/users`);
-            // NOTE: Kami tidak menggunakan orderBy untuk menghindari kesalahan index, sorting dilakukan secara lokal.
-            const q = query(leaderboardCollectionRef);
+            // Simulation of contract call for 0.01 ETH
+            document.getElementById('payToPlayBtn').textContent = "Transaction in progress...";
+            document.getElementById('payToPlayBtn').disabled = true;
 
-            onSnapshot(q, (snapshot) => {
-                let scores = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    if (data.score && typeof data.score === 'number') {
-                        scores.push({
-                            id: doc.id,
-                            name: data.displayName || `User#${doc.id.substring(0, 6)}`,
-                            score: data.score
-                        });
-                    }
-                });
+            await new Promise(resolve => setTimeout(resolve, 2000)); 
+            
+            // Simulate transaction success
+            hasPaidForGame = true;
+            startGame();
+            
+            showMessageModal("Payment Successful!", `${COST_TO_PLAY} ETH has been paid. Game Controls are now activated!`);
+            updateUIState();
+        }
+        window.payToPlay = payToPlay;
 
-                scores.sort((a, b) => b.score - a.score);
-                const topScores = scores.slice(0, 10);
-                
-                updateLeaderboardUI(topScores);
-            }, (error) => {
-                console.error("Error mendengarkan leaderboard:", error);
-                leaderboardList.innerHTML = `<p class="text-center text-red-500">Error memuat data leaderboard: ${error.message}</p>`;
+        // --- GAME LOGIC (Implementation) ---
+        function initializeCanvas() {
+            canvas = document.getElementById('pacmanCanvas');
+            if (!canvas) return;
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size dynamically based on map size
+            canvas.width = originalMap[0].length * tileSize;
+            canvas.height = originalMap.length * tileSize;
+            
+            // Setup keyboard listeners
+            document.removeEventListener('keydown', handleKeyDown);
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // Setup touch/swipe listeners for mobile
+            setupTouchControls();
+        }
+
+        function setupTouchControls() {
+            let startX, startY;
+
+            canvas.addEventListener('touchstart', (e) => {
+                if (!gameActive) return;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            });
+
+            canvas.addEventListener('touchend', (e) => {
+                if (!gameActive || !startX) return;
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+
+                const dx = endX - startX;
+                const dy = endY - startY;
+
+                // Determine swipe direction
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // Horizontal swipe
+                    player.dx = dx > 0 ? 1 : -1;
+                    player.dy = 0;
+                } else {
+                    // Vertical swipe
+                    player.dy = dy > 0 ? 1 : -1;
+                    player.dx = 0;
+                }
+                startX = startY = null; // Reset
             });
         }
-
-        function updateLeaderboardUI(scores) {
-            if (leaderboardList) {
-                if (scores.length === 0) {
-                    leaderboardList.innerHTML = '<p class="text-center text-gray-500">Belum ada skor yang tercatat.</p>';
-                    return;
-                }
-
-                leaderboardList.innerHTML = scores.map((item, index) => `
-                    <div class="leaderboard-item">
-                        <span class="leaderboard-name">#${index + 1} - ${item.name}</span>
-                        <span class="leaderboard-score">${item.score}</span>
-                    </div>
-                `).join('');
-            }
-        }
         
-        window.fetchLeaderboard = () => {
-             // Listener onSnapshot sudah dipanggil, jadi data sudah diperbarui
-             if (!db || !firebaseConfig) {
-                 const localHighscore = parseInt(localStorage.getItem('pacman_highscore')) || 0;
-                 leaderboardList.innerHTML = `<p class="text-center text-red-500 font-bold">⚠️ DB GAGAL. Skor Tertinggi Lokal: ${localHighscore}</p>
-                                               <p class="text-center text-xs text-gray-500">Silakan hubungi administrator untuk memperbaiki koneksi Firebase.</p>`;
-             }
-        };
-        
-        // --- LOGIKA GAME PAC-MAN CHRISTMAS ---
-
-        function initGame() {
-            // Reset peta dan posisi
-            maze = initialMaze.map(row => [...row]); 
-            playerX = 11; 
-            playerY = 12; 
-            score = 0;
-            ghosts = [
-                { x: 10, y: 6, color: 'rgb(255, 69, 0)', dir: 'left', speed: 1, isFrightened: false }, 
-                { x: 11, y: 6, color: 'rgb(0, 255, 255)', dir: 'right', speed: 1, isFrightened: false }, 
-                { x: 9, y: 7, color: 'rgb(255, 184, 255)', dir: 'up', speed: 1, isFrightened: false }, 
-                { x: 12, y: 7, color: 'rgb(255, 184, 82)', dir: 'down', speed: 1, isFrightened: false }
-            ];
+        function handleKeyDown(e) {
+            if (!gameActive) return;
+            let newDx = 0, newDy = 0;
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                    newDy = -1; break;
+                case 'ArrowDown':
+                case 's':
+                    newDy = 1; break;
+                case 'ArrowLeft':
+                case 'a':
+                    newDx = -1; break;
+                case 'ArrowRight':
+                case 'd':
+                    newDx = 1; break;
+                default: return;
+            }
+            e.preventDefault(); 
             
-            currentDirection = 'right';
-            nextDirection = 'right';
-            scoreDisplay.innerText = score;
-            playerNameGame.innerText = displayName;
-
-            if (!gameRunning) {
-                gameRunning = true;
-                if (movementInterval) clearInterval(movementInterval);
-                movementInterval = setInterval(gameLoop, SPEED_MS);
-                gameLoopId = requestAnimationFrame(drawGame);
+            // Set direction only if it's not blocked by a wall immediately
+            if (map[player.y + newDy] && map[player.y + newDy][player.x + newDx] !== 0) {
+                player.dx = newDx;
+                player.dy = newDy;
             }
         }
-        
-        function stopGameLoop() {
-            gameRunning = false;
-            if (movementInterval) clearInterval(movementInterval);
-            if (gameLoopId) cancelAnimationFrame(gameLoopId);
-        }
 
-        // --- Pergerakan Pemain ---
-        function movePlayerInDirection(dir) {
-            let newX = playerX;
-            let newY = playerY;
-
-            if (dir === 'up') newY--;
-            else if (dir === 'down') newY++;
-            else if (dir === 'left') newX--;
-            else if (dir === 'right') newX++;
-
-            // Cek Tabrakan Dinding (1)
-            if (maze[newY][newX] !== 1) {
-                playerX = newX;
-                playerY = newY;
-                currentDirection = dir;
-                
-                // Cek Koleksi
-                if (maze[playerY][playerX] === 2) {
-                    score += 10;
-                    maze[playerY][playerX] = 0; // Hapus dot
-                } else if (maze[playerY][playerX] === 3) { // Perbaikan: gunakan playerY, playerX
-                    score += 50;
-                    maze[playerY][playerX] = 0; // Hapus power pellet
-                    activateFrightenedMode();
-                }
-                
-                scoreDisplay.innerText = score;
-                checkWinCondition();
-                return true;
-            }
-            return false;
-        }
-
-        function gameLoop() {
-            if (!gameRunning) return;
-            
-            // 1. Coba pindah ke nextDirection
-            let moved = movePlayerInDirection(nextDirection);
-            
-            // 2. Jika gagal (tabrak dinding), coba currentDirection
-            if (!moved && nextDirection !== currentDirection) {
-                movePlayerInDirection(currentDirection);
-            }
-            
-            // 3. Pergerakan Hantu
-            const currentTime = Date.now();
-            if (currentTime - lastUpdateTime > GHOST_MOVE_INTERVAL) {
-                moveGhosts();
-                lastUpdateTime = currentTime;
-            }
-            
-            // 4. Cek Tabrakan Hantu
-            checkCollision();
-        }
-
-        function moveGhosts() {
-            ghosts.forEach(ghost => {
-                let possibleDirections = ['up', 'down', 'left', 'right'];
-                let moved = false;
-                
-                // Jika sedang ketakutan, coba arah acak
-                if (ghost.isFrightened) {
-                    possibleDirections.sort(() => Math.random() - 0.5); // Acak
-                }
-                
-                // Coba 4 arah untuk bergerak
-                for (let dir of possibleDirections) {
-                    let newX = ghost.x;
-                    let newY = ghost.y;
-
-                    if (dir === 'up') newY--;
-                    else if (dir === 'down') newY++;
-                    else if (dir === 'left') newX--;
-                    else if (dir === 'right') newX++;
-
-                    // Pastikan tidak tabrak dinding (1)
-                    if (maze[newY] && maze[newY][newX] !== 1) {
-                        ghost.x = newX;
-                        ghost.y = newY;
-                        ghost.dir = dir; // Update arah untuk iterasi berikutnya
-                        moved = true;
-                        break;
-                    }
-                }
-                
-                // Jika tidak bisa bergerak, balik arah (jika perlu)
-                if (!moved) {
-                    let newDir = '';
-                    if (ghost.dir === 'up') newDir = 'down';
-                    else if (ghost.dir === 'down') newDir = 'up';
-                    else if (ghost.dir === 'left') newDir = 'right';
-                    else if (ghost.dir === 'right') newDir = 'left';
-
-                    let newX = ghost.x;
-                    let newY = ghost.y;
-                    if (newDir === 'up') newY--;
-                    else if (newDir === 'down') newY++;
-                    else if (newDir === 'left') newX--;
-                    else if (newDir === 'right') newX++;
+        function drawMap() {
+            for (let y = 0; y < map.length; y++) {
+                for (let x = 0; x < map[y].length; x++) {
+                    const center = { x: x * tileSize + tileSize / 2, y: y * tileSize + tileSize / 2 };
                     
-                    // Coba bergerak setelah balik arah
-                    if (maze[newY] && maze[newY][newX] !== 1) {
-                        ghost.x = newX;
-                        ghost.y = newY;
-                        ghost.dir = newDir;
-                    }
-                }
-            });
-        }
-
-        function checkCollision() {
-            for (let i = 0; i < ghosts.length; i++) {
-                const ghost = ghosts[i];
-                if (ghost.x === playerX && ghost.y === playerY) {
-                    if (ghost.isFrightened) {
-                        // Pac-Man makan Hantu (Mode Ketakutan)
-                        score += 200;
-                        scoreDisplay.innerText = score;
-                        
-                        // Kirim hantu kembali ke posisi awal
-                        ghosts.splice(i, 1);
-                        ghosts.push({ 
-                            x: 10 + (i % 2), 
-                            y: 6 + (i % 2), 
-                            color: 'rgb(128, 128, 128)', // Abu-abu saat kembali
-                            dir: 'up', 
-                            speed: 1, 
-                            isFrightened: false 
-                        });
-                        break; // Keluar dari loop setelah makan hantu
-                        
-                    } else {
-                        // Hantu makan Pac-Man (Game Over)
-                        gameOver();
-                        return;
+                    if (map[y][x] === 0) {
+                        // Wall (Christmas Themed)
+                        ctx.fillStyle = '#ff0000'; // Red Wall
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                        ctx.strokeStyle = '#ffffff'; // White line for candy cane look
+                        ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    } else if (map[y][x] === 1) {
+                        // Pellet (Christmas Dot)
+                        ctx.fillStyle = '#00ffae'; // Bright Green/Aqua Pellet
+                        ctx.beginPath();
+                        ctx.arc(center.x, center.y, 3, 0, 2 * Math.PI);
+                        ctx.fill();
                     }
                 }
             }
         }
         
-        function activateFrightenedMode() {
-            clearTimeout(frightenedTimeout);
-            
-            // Atur semua hantu ke mode ketakutan
-            ghosts.forEach(ghost => {
-                ghost.isFrightened = true;
-            });
-            
-            // Set timeout untuk mengakhiri mode ketakutan (8 detik)
-            frightenedTimeout = setTimeout(() => {
-                ghosts.forEach(ghost => {
-                    ghost.isFrightened = false;
-                });
-            }, 8000); 
-        }
-
-        function checkWinCondition() {
-            let remainingDots = 0;
-            for (let y = 0; y < maze.length; y++) {
-                for (let x = 0; x < maze[y].length; x++) {
-                    if (maze[y][x] === 2 || maze[y][x] === 3) {
-                        remainingDots++;
-                    }
-                }
-            }
-
-            if (remainingDots === 0) {
-                stopGameLoop();
-                window.saveScore(score);
-                showCustomModal("SELAMAT, MISI SELESAI!", 
-                    `<p>Anda berhasil mengumpulkan semua Candy Cane dan Power Pellet!</p>
-                     <p class="mt-2 font-bold text-lg">Skor Akhir Anda: ${score}</p>`);
-            }
-        }
-
-        function gameOver() {
-            stopGameLoop();
-            window.saveScore(score); 
-            showCustomModal("GAME OVER!", 
-                `<p>Anda tertangkap oleh Hantu Natal!</p>
-                 <p class="mt-2 font-bold text-lg">Skor Akhir Anda: ${score}</p>`);
-        }
-
-        // --- FUNGSI GAMBAR (DRAWING) ---
-        function drawTile(x, y, color) {
-            ctx.fillStyle = color;
-            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        }
-
-        function drawMaze() {
-            for (let y = 0; y < maze.length; y++) {
-                for (let x = 0; x < maze[y].length; x++) {
-                    const cell = maze[y][x];
-                    
-                    if (cell === 1) {
-                        // Dinding - Hijau Natal
-                        drawTile(x, y, 'var(--christmas-green)');
-                    } else if (cell === 0 || cell === 2 || cell === 3 || cell === 4) {
-                        // Jalan/Latar Belakang - Hitam
-                        drawTile(x, y, 'black'); 
-                        
-                        if (cell === 2) {
-                            // Candy Cane (Dot) - Putih Salju
-                            ctx.fillStyle = 'var(--christmas-snow)';
-                            ctx.beginPath();
-                            ctx.arc(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 8, 0, 2 * Math.PI);
-                            ctx.fill();
-                        } else if (cell === 3) {
-                            // Power Pellet (Kapsul) - Emas
-                            ctx.fillStyle = 'var(--christmas-gold)';
-                            ctx.beginPath();
-                            ctx.arc(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 4, 0, 2 * Math.PI);
-                            ctx.fill();
-                        }
-                    }
-                }
-            }
-        }
-
         function drawPlayer() {
-            const x = playerX * TILE_SIZE + TILE_SIZE / 2;
-            const y = playerY * TILE_SIZE + TILE_SIZE / 2;
-            const radius = TILE_SIZE / 2 - 2;
+            const centerX = player.x * tileSize + tileSize / 2;
+            const centerY = player.y * tileSize + tileSize / 2;
             
-            let angleStart = 0.25;
-            let angleEnd = 1.75;
-            
-            // Sesuaikan sudut mulut berdasarkan arah (efek animasi makan)
-            if (currentDirection === 'up') { angleStart = 0.75; angleEnd = 2.25; }
-            else if (currentDirection === 'down') { angleStart = 1.25; angleEnd = 2.75; }
-            else if (currentDirection === 'left') { angleStart = 1.0; angleEnd = 3.0; }
-            else if (currentDirection === 'right') { angleStart = 0.0; angleEnd = 2.0; }
-            
-            // Menggambar Pac-Man (Lingkaran Kuning)
-            ctx.fillStyle = 'yellow';
+            // Adjust mouth open/close for animation
+            player.mouthOpen = Math.cos(Date.now() / 100) * 0.15 + 0.15;
+
+            // Determine angle for drawing (based on direction)
+            if (player.dx === 1) player.angle = 0;
+            else if (player.dx === -1) player.angle = Math.PI;
+            else if (player.dy === -1) player.angle = -Math.PI / 2;
+            else if (player.dy === 1) player.angle = Math.PI / 2;
+
+            ctx.fillStyle = player.color;
             ctx.beginPath();
-            // Animasi Mulut: buka/tutup berdasarkan waktu
-            const mouthOpen = (Date.now() % 500 < 250); 
-            const mouthOffset = mouthOpen ? 0.1 : 0.0;
-            
-            ctx.arc(x, y, radius, (angleStart + mouthOffset) * Math.PI, (angleEnd - mouthOffset) * Math.PI);
-            ctx.lineTo(x, y);
+            ctx.arc(
+                centerX, 
+                centerY, 
+                player.radius, 
+                player.angle + player.mouthOpen, 
+                player.angle + 2 * Math.PI - player.mouthOpen
+            );
+            ctx.lineTo(centerX, centerY);
             ctx.fill();
         }
 
-        function drawGhosts() {
-            ghosts.forEach(ghost => {
-                const x = ghost.x * TILE_SIZE + TILE_SIZE / 2;
-                const y = ghost.y * TILE_SIZE + TILE_SIZE / 2;
-                const radius = TILE_SIZE / 2 - 2;
-                
-                // Warna berdasarkan status (Biru tua saat ketakutan)
-                const color = ghost.isFrightened ? 'blue' : ghost.color;
-                
-                ctx.fillStyle = color;
-                
-                // Badan Hantu (Setengah lingkaran + kotak)
-                ctx.beginPath();
-                ctx.arc(x, y - 2, radius, Math.PI, 0, false); // Bagian atas (setengah lingkaran)
-                ctx.lineTo(x + radius, y + radius); // Sisi Kanan
-                
-                // Kaki/Gigi Gergaji (Simulasi Rok Hantu)
-                const footSize = TILE_SIZE / 5;
-                for (let i = -radius; i < radius; i += footSize * 2) {
-                    ctx.lineTo(x + i + footSize, y + radius);
-                    ctx.lineTo(x + i, y + radius - footSize / 2); // Naik sedikit
-                }
-                
-                ctx.lineTo(x - radius, y + radius); // Sisi Kiri
-                ctx.closePath();
-                ctx.fill();
-                
-                // Mata (Putih)
-                ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(x - 5, y - 5, 3, 0, 2 * Math.PI);
-                ctx.arc(x + 5, y - 5, 3, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                // Pupil (Hitam/Merah - Berubah saat ketakutan)
-                ctx.fillStyle = ghost.isFrightened ? 'black' : 'red';
-                ctx.beginPath();
-                ctx.arc(x - 5, y - 5, 1, 0, 2 * Math.PI);
-                ctx.arc(x + 5, y - 5, 1, 0, 2 * Math.PI);
-                ctx.fill();
-            });
-        }
+        function updateGame() {
+            if (!gameActive) return;
 
-        function drawGame() {
-            // Hapus Kanvas
-            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            
-            // Gambar Maze, Dots, Pellets
-            drawMaze();
-            
-            // Gambar Hantu
-            drawGhosts();
-            
-            // Gambar Pemain
+            // Player movement
+            const nextX = player.x + player.dx;
+            const nextY = player.y + player.dy;
+
+            if (map[nextY] && map[nextY][nextX] !== 0) {
+                player.x = nextX;
+                player.y = nextY;
+            } else {
+                // Stop player if hitting a wall in the current direction
+                // Prevents sliding along walls
+                player.dx = 0;
+                player.dy = 0;
+            }
+
+            // Pellet collection
+            if (map[player.y][player.x] === 1) {
+                map[player.y][player.x] = 2; // Mark as collected
+                currentScore += 10; // Score per pellet
+                pelletsRemaining--;
+                document.getElementById('gameScoreDisplay').textContent = currentScore.toLocaleString();
+            }
+
+            // Win condition (All pellets collected)
+            if (pelletsRemaining === 0) {
+                endGame(true);
+                return;
+            }
+
+            // Simple Ghost logic (No ghosts in this minimal version, focusing on core Pac-Man)
+
+            // Redraw everything
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMap();
             drawPlayer();
 
-            // Loop Gambar
-            if (gameRunning) {
-                gameLoopId = requestAnimationFrame(drawGame);
+            // Loop the game
+            gameLoopId = requestAnimationFrame(updateGame);
+        }
+
+        function resetGameDisplay() {
+            // Ensure canvas is initialized when view is set to game
+            if (!canvas) initializeCanvas(); 
+            
+            gameActive = false;
+            currentScore = 0;
+            document.getElementById('gameStatus').textContent = 'Ready to Play.';
+            document.getElementById('gameScoreDisplay').textContent = '0';
+            
+            const payBtn = document.getElementById('payToPlayBtn');
+            payBtn.textContent = `Pay ${COST_TO_PLAY} ETH to Start`;
+            payBtn.disabled = !isWalletConnected;
+            
+            document.getElementById('gameOverControls').classList.add('hidden');
+            
+            // Reset map
+            map = originalMap.map(row => [...row]);
+            
+            // Count total pellets and reset player position
+            pelletsRemaining = map.flat().filter(tile => tile === 1).length;
+            player.x = 1;
+            player.y = 1;
+            player.dx = 0;
+            player.dy = 0;
+            
+            if (!hasPaidForGame) {
+                document.getElementById('payToPlayContainer').classList.remove('hidden');
+                document.getElementById('gameStatus').textContent = 'Controls Disabled (Pay to Play).';
+            } else {
+                document.getElementById('payToPlayContainer').classList.add('hidden');
+                // Auto start if paid
+                startGame();
+            }
+            
+            // Draw initial state
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMap();
+            drawPlayer();
+
+            updateUIState();
+        }
+        
+        function startGame() {
+            if (!hasPaidForGame || gameActive) return;
+            
+            gameActive = true;
+            document.getElementById('gameStatus').textContent = 'Game Running! (Use Arrow Keys / Swipe)';
+            document.getElementById('payToPlayContainer').classList.add('hidden');
+            document.getElementById('gameOverControls').classList.add('hidden');
+            
+            // Start the actual game loop
+            updateGame(); 
+        }
+        
+        function endGame(won = false) {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameActive = false;
+            
+            if (won) {
+                document.getElementById('gameStatus').textContent = 'YOU WON! Score: ' + currentScore.toLocaleString();
+            } else {
+                document.getElementById('gameStatus').textContent = 'GAME OVER!';
+            }
+            
+            document.getElementById('gameOverControls').classList.remove('hidden');
+            
+            // Auto submit score
+            submitScoreToContract(currentScore);
+        }
+
+        async function submitScoreToContract(score) {
+            if (!isWalletConnected || !currentUserId || score <= 0) {
+                showMessageModal("Submit Failed", "Invalid score or Wallet not connected.", true);
+                return;
+            }
+            
+            showMessageModal("Submitting Score", `Your final score of ${score.toLocaleString()} is being recorded to the Leaderboard...`);
+
+            // --- SIMULATE SMART CONTRACT/API INTERACTION (2 seconds) ---
+            await new Promise(resolve => setTimeout(resolve, 2000)); 
+            
+            // Record score to Firestore Leaderboard (Persistence)
+            if (isDbReady) {
+                saveToFirestoreLeaderboard(score);
+            }
+
+            showMessageModal("Score Successfully Recorded!", `Score ${score.toLocaleString()} has been added to the official Leaderboard.`);
+            
+            // Reset game status and show leaderboard
+            hasPaidForGame = false; 
+            renderView('leaderboard'); 
+        }
+        
+        async function saveToFirestoreLeaderboard(score) {
+            try {
+                // Public data path: /artifacts/{appId}/public/data/leaderboard/{userId}
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', currentUserId);
+                
+                await setDoc(docRef, {
+                    userId: currentUserId,
+                    displayName: currentDisplayName,
+                    score: score,
+                    timestamp: serverTimestamp() 
+                }, { merge: true }); 
+
+            } catch (error) {
+                console.error("Failed to record score to Firestore:", error);
             }
         }
 
-        // --- INPUT HANDLING ---
-        function handleMovement(direction) {
-            nextDirection = direction;
-        }
-        window.handleMovement = handleMovement;
+        // --- LEADERBOARD LOGIC (Unchanged) ---
+        let unsubscribeLeaderboard = null;
 
-        function stopMovement() {
-            // Untuk D-Pad sentuh, biarkan nextDirection tetap, hanya currentDirection yang penting di gameLoop
-        }
-        window.stopMovement = stopMovement;
-        
-        function handleKeyDown(e) {
-            if (!gameRunning) return;
-            let dir = nextDirection;
+        function fetchLeaderboard() {
+            if (!isDbReady) return;
+
+            if (unsubscribeLeaderboard) {
+                unsubscribeLeaderboard(); 
+            }
             
-            if (e.key === 'ArrowUp') dir = 'up';
-            else if (e.key === 'ArrowDown') dir = 'down';
-            else if (e.key === 'ArrowLeft') dir = 'left';
-            else if (e.key === 'ArrowRight') dir = 'right';
+            const leaderboardCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            const q = query(
+                leaderboardCollectionRef, 
+                limit(100) 
+            );
 
-            handleMovement(dir);
+            document.getElementById('leaderboardList').innerHTML = '<p class="text-center text-yellow-300">Loading festive scores...</p>';
+            
+            unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
+                const leaderboard = [];
+                snapshot.forEach((doc) => {
+                    leaderboard.push({ ...doc.data(), id: doc.id });
+                });
+                
+                // Sort in memory by score (descending)
+                leaderboard.sort((a, b) => b.score - a.score);
+
+                renderLeaderboard(leaderboard.slice(0, 10)); // Show only top 10
+            }, (error) => {
+                console.error("Failed to fetch Leaderboard:", error);
+                document.getElementById('leaderboardList').innerHTML = `<p class="text-center text-red-400">Failed to load Leaderboard: ${error.message}</p>`;
+            });
         }
-        window.handleKeyDown = handleKeyDown;
 
-        function handleKeyUp(e) {
-            // Untuk skema Pac-Man, tidak perlu logika key up
+        function renderLeaderboard(data) {
+            const listEl = document.getElementById('leaderboardList');
+            if (data.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-gray-400 mt-4">No scores recorded yet. Be the first!</p>';
+                return;
+            }
+            
+            const html = `
+                <table class="min-w-full divide-y divide-gray-700 rounded-xl overflow-hidden">
+                    <thead class="bg-red-900">
+                        <tr class="text-left text-sm font-semibold text-white">
+                            <th class="px-4 py-3">#</th>
+                            <th class="px-4 py-3">Player ID</th>
+                            <th class="px-4 py-3 text-right">High Score</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-red-900/50">
+                        ${data.map((entry, index) => `
+                            <tr class="${entry.userId === currentUserId ? 'bg-yellow-800 bg-opacity-30 font-bold' : 'hover:bg-red-900'} text-gray-200">
+                                <td class="px-4 py-3 whitespace-nowrap text-sm">${index + 1}</td>
+                                <td class="px-4 py-3 text-sm">
+                                    <span class="text-white">${entry.displayName || 'Anonim'}</span> 
+                                    <span class="text-xs text-gray-500 block">${entry.userId}</span>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-right text-yellow-300 font-extrabold">${entry.score.toLocaleString()}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            listEl.innerHTML = html;
         }
-        window.handleKeyUp = handleKeyUp;
-        
-        // --- EVENT LISTENERS UI ---
-        
-        startGameBtn.addEventListener('click', () => {
-            switchToScreen('gameScreen');
-            initGame();
-        });
 
-        backMenuButton.addEventListener('click', () => {
-            switchToScreen('startScreen');
-            updateFirebaseStatusUI("KONEKSI BERHASIL", `ID Pemain: ${displayName} (${userId ? userId.substring(0, 8) + '...' : 'Anonim'})`, true);
-            stopGameLoop();
-        });
+        // --- UI STATE UPDATE GLOBAL ---
+        function updateUIState() {
+            // Sidebar: Wallet Status
+            const walletStatusEl = document.getElementById('walletStatus');
+            const connectBtn = document.getElementById('connectWalletBtn');
+            
+            if (isWalletConnected) {
+                walletStatusEl.innerHTML = `<span class="text-green-400 font-bold">Connected</span> | ${somiBalance} $SOMI`;
+                connectBtn.classList.add('active');
+            } else {
+                walletStatusEl.innerHTML = `<span class="text-red-400">Disconnected</span> | 0 $SOMI`;
+                connectBtn.classList.remove('active');
+            }
+            
+            // Sidebar: User ID
+            const userIdEl = document.getElementById('currentUserIdDisplay');
+            if (userIdEl) {
+                 userIdEl.textContent = `User ID: ${currentUserId || 'N/A'}`;
+            }
 
-        async function showLeaderboardModal() {
-            document.getElementById('leaderboardModal').style.display = 'flex';
-            window.fetchLeaderboard(); 
+            // Game View: Pay Button State
+            const payBtn = document.getElementById('payToPlayBtn');
+            if (payBtn) {
+                payBtn.disabled = !isWalletConnected;
+            }
         }
-        window.showLeaderboardModal = showLeaderboardModal;
-        
-        // Listener untuk Keyboard (untuk PC)
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('keyup', handleKeyUp);
 
+        // Run app initialization when the window loads
+        window.onload = initApp;
 
-        // --- INISIALISASI AKHIR ---
-        // Panggil inisialisasi setelah semua skrip eksternal dan DOM dimuat
-        window.onload = initializeFirebase;
-        updateConnectButtonUI(false); 
-        
     </script>
+</head>
+<body class="antialiased">
+
+    <!-- SNOW EFFECT INTEGRATION - DENSITY INCREASED -->
+    <script>
+        for(let i=0;i<100;i++){ 
+            const snow=document.createElement("div");
+            snow.className="snow";
+            snow.style.left=Math.random()*100+"vw";
+            snow.style.animationDuration=(Math.random()*5+5)+"s";
+            snow.style.animationDelay=(Math.random()*5)+"s";
+            snow.style.width = snow.style.height = (Math.random() * 5 + 3) + "px"; 
+            snow.style.opacity=Math.random() * 0.8 + 0.4; 
+            document.body.appendChild(snow);
+        }
+    </script>
+    <!-- END SNOW EFFECT -->
+
+    <!-- CRITICAL ERROR BANNER -->
+    <div id="criticalError" class="hidden fixed top-0 left-0 right-0 p-3 bg-red-700 text-white text-center font-bold z-50">
+        [CRITICAL ERROR] Failed to connect to Firebase services.
+    </div>
+    
+    <div id="container">
+        <!-- === LEFT SIDEBAR (FIXED) === -->
+        <nav class="sidebar z-20">
+            
+            <!-- App Title / Logo -->
+            <div class="p-2 border-b-2 border-yellow-300 mb-4">
+                <h1 class="text-2xl font-extrabold text-red-500 font-[Mountains of Christmas]">
+                    SOMNIA QUEST
+                </h1>
+                <p class="text-xs text-gray-400 mt-1" id="currentUserIdDisplay">User ID: Loading...</p>
+            </div>
+
+            <!-- Wallet Status -->
+            <button id="connectWalletBtn" onclick="connectWallet()" class="nav-btn bg-green-800 hover:bg-green-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H3v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5M7 12h4m-4 0v-4m12-5v.01"/></svg>
+                Connect Wallet
+            </button>
+            <div id="walletStatus" class="text-xs text-gray-300 text-center mb-4">Disconnected | 0 $SOMI</div>
+            
+            <hr class="border-red-600 my-4">
+
+            <!-- Navigation Buttons -->
+            <button id="playGameBtn" onclick="renderView('game')" class="nav-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Play Game
+            </button>
+            
+            <button id="leaderboardBtn" onclick="renderView('leaderboard')" class="nav-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>
+                Leaderboard
+            </button>
+
+            <!-- Footer -->
+            <footer class="mt-auto pt-4 text-xs text-red-300 text-center border-t border-red-600/50">
+                Created by: @ifunkkalem
+            </footer>
+        </nav>
+        
+        <!-- === RIGHT MAIN CONTENT (DYNAMIC) === -->
+        <main class="main-content">
+            
+            <h2 class="text-5xl font-black mb-6 text-yellow-300 font-[Mountains of Christmas] text-center">
+                🎄 SOMNIA CHRISTMAS CARNIVAL 🎁
+            </h2>
+
+            <!-- 1. DEFAULT/PREVIEW VIEW -->
+            <div id="previewView" class="view-section">
+                <div class="bg-red-800 bg-opacity-70 p-8 rounded-2xl shadow-xl border border-yellow-300">
+                    <div class="flex flex-col md:flex-row items-center">
+                        <div class="md:w-1/2">
+                            <h3 class="text-3xl font-extrabold text-white mb-4">
+                                Welcome, Christmas Voyager!
+                            </h3>
+                            <p class="text-gray-200 mb-4">
+                                This festive Pac-Man edition lets you compete and record your high score to the Leaderboard by paying a small fee of **0.01 ETH** per session.
+                            </p>
+                            <p class="font-bold text-yellow-300">
+                                Connect your wallet to begin your Christmas Quest!
+                            </p>
+                        </div>
+                        <div class="md:w-1/2 flex justify-center mt-6 md:mt-0">
+                            <!-- Christmas Pac-Man SVG Icon -->
+                            <svg class="w-28 h-28 text-yellow-300 animate-pulse" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M50 0 A50 50 0 0 1 85.355 14.645 L50 50 Z M50 0 A50 50 0 0 0 14.645 14.645 L50 50 Z" fill="currentColor"/>
+                                <circle cx="50" cy="50" r="50" fill="currentColor" mask="url(#pacmask)" />
+                                <path d="M50 50 L 78.88 78.88 L 50 50 L 78.88 21.12 L 50 50 Z" fill="#123e2d" transform="rotate(270 50 50)"/>
+                                <polygon points="50,15 70,35 75,30 65,5" fill="#FF0000" stroke="#FFFFFF" stroke-width="2"/>
+                                <circle cx="65" cy="5" r="4" fill="#FFFFFF"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. GAME VIEW -->
+            <div id="gameView" class="view-section hidden">
+                <h3 class="text-3xl font-bold text-white mb-4">Christmas Quest Game Zone</h3>
+
+                <!-- Game Canvas Area -->
+                <div class="game-canvas-area w-full flex items-center justify-center rounded-xl relative">
+                    <!-- HTML Canvas element for the game -->
+                    <canvas id="pacmanCanvas" class="w-full h-full"></canvas>
+
+                    <!-- Overlay Pay to Play -->
+                    <div id="payToPlayContainer" class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center space-y-6 rounded-xl">
+                        <p class="text-2xl font-bold text-red-400">PAY TO ACTIVATE CONTROLS</p>
+                        <p class="text-lg text-gray-300">Pay <span class="text-yellow-400 font-bold">${COST_TO_PLAY} ETH</span> to begin your session.</p>
+                        <button id="payToPlayBtn" onclick="payToPlay()" class="bg-green-600 hover:bg-green-700 text-white font-extrabold py-3 px-8 rounded-full shadow-lg transition duration-300 disabled:opacity-50">
+                            Pay ${COST_TO_PLAY} ETH to Start
+                        </button>
+                    </div>
+                    
+                    <!-- Game Content Placeholder (Used for instructions/messages) -->
+                    <div id="gameMessage" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="text-center">
+                            <p class="text-5xl font-extrabold text-white mb-4 hidden">PAC-MAN CHRISTMAS</p>
+                            <p id="gameStatus" class="text-xl text-yellow-400 font-bold p-2 bg-black bg-opacity-50 rounded">Ready to Play.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Game Info & Controls -->
+                <div class="flex justify-between items-center bg-gray-800 p-4 mt-4 rounded-xl shadow-inner border border-red-600">
+                    <div>
+                        <p class="text-lg font-semibold text-gray-400">Current Score:</p>
+                        <p id="gameScoreDisplay" class="text-4xl font-extrabold text-green-400">0</p>
+                    </div>
+                    <div id="gameOverControls" class="hidden">
+                        <button onclick="resetGameDisplay()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">
+                            Play Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. LEADERBOARD VIEW -->
+            <div id="leaderboardView" class="view-section hidden">
+                <h3 class="text-3xl font-bold text-white mb-4">Top 10 Leaderboard (Real-time)</h3>
+                
+                <div id="leaderboardList" class="bg-gray-900 p-4 rounded-xl shadow-lg border border-red-600">
+                    <p class="text-center text-gray-400">Loading data...</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MESSAGE MODAL (Custom Alert Box) -->
+    <div id="messageModal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+        <div class="modal-card bg-white p-6 rounded-2xl w-full max-w-sm border-4 border-green-500 shadow-2xl">
+            <h3 id="modalTitle" class="text-2xl font-bold mb-3 text-gray-900">Title</h3>
+            <p id="modalBody" class="text-gray-700 mb-6"></p>
+            <button onclick="hideMessageModal()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition duration-150">
+                CLOSE
+            </button>
+        </div>
+    </div>
+
 </body>
 </html>
