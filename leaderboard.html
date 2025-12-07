@@ -1,68 +1,122 @@
-<script src="./ethers.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Somnia Pacman Leaderboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script>
-(async () => {
+  <!-- ✅ WAJIB -->
+  <script src="./libs/ethers.min.js"></script>
 
-  const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
-
-  const ABI = [
-    {
-      "inputs": [],
-      "name": "getTop10",
-      "outputs": [
-        { "internalType": "address[]", "name": "topPlayers", "type": "address[]" },
-        { "internalType": "uint256[]", "name": "scores", "type": "uint256[]" }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    }
-  ];
-
-  const list = document.getElementById("leaderboard-list");
-
-  try {
-    if (typeof ethers === "undefined") {
-      list.innerHTML = "<li style='color:red'>ethers.js gagal dimuat</li>";
-      return;
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0f172a;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
     }
 
-    // ✅ RPC SOMNIA MAINNET (WAJIB)
-    const provider = new ethers.providers.JsonRpcProvider(
-      "https://rpc.somnia.network",
+    h1 {
+      margin-top: 20px;
+    }
+
+    #leaderboard-list {
+      margin: 20px auto;
+      padding: 0;
+      width: 90%;
+      max-width: 400px;
+      list-style: none;
+    }
+
+    #leaderboard-list li {
+      background: #1e293b;
+      margin: 10px 0;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🏆 LEADERBOARD</h1>
+  <p id="status">Loading blockchain data...</p>
+
+  <ul id="leaderboard-list"></ul>
+
+  <script>
+  (async () => {
+    const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
+
+    const ABI = [
       {
-        name: "somnia",
-        chainId: 50312
+        "inputs": [],
+        "name": "getTop10",
+        "outputs": [
+          { "internalType": "address[]", "name": "topPlayers", "type": "address[]" },
+          { "internalType": "uint256[]", "name": "scores", "type": "uint256[]" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
       }
-    );
+    ];
 
-    const contract = new ethers.Contract(
-      CONTRACT_ADDRESS,
-      ABI,
-      provider
-    );
+    const status = document.getElementById("status");
+    const list = document.getElementById("leaderboard-list");
 
-    const result = await contract.getTop10();
+    try {
+      if (typeof ethers === "undefined") {
+        status.innerText = "❌ ethers.js gagal dimuat";
+        return;
+      }
 
-    const players = result[0];
-    const scores  = result[1];
+      status.innerText = "🔌 Connecting to Somnia Network...";
 
-    list.innerHTML = "";
+      const provider = new ethers.providers.JsonRpcProvider(
+        "https://rpc.somnia.network",
+        {
+          name: "somnia",
+          chainId: 50312
+        }
+      );
 
-    if (!players.length) {
-      list.innerHTML = "<li>Belum ada skor</li>";
-      return;
+      const contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        ABI,
+        provider
+      );
+
+      status.innerText = "📡 Fetching leaderboard...";
+
+      const result = await contract.getTop10();
+
+      const players = result[0];
+      const scores  = result[1];
+
+      list.innerHTML = "";
+      status.innerText = "";
+
+      if (!players.length) {
+        list.innerHTML = "<li>Belum ada skor tersimpan</li>";
+        return;
+      }
+
+      for (let i = 0; i < players.length; i++) {
+        const li = document.createElement("li");
+        li.innerText = `${i+1}. ${players[i]} — ${scores[i].toString()} PTS`;
+        list.appendChild(li);
+      }
+
+    } catch (err) {
+      console.error("LEADERBOARD ERROR:", err);
+      status.innerText = "❌ Gagal terhubung ke blockchain";
     }
+  })();
+  </script>
 
-    for (let i = 0; i < players.length; i++) {
-      const li = document.createElement("li");
-      li.innerText = `${i+1}. ${players[i]} — ${scores[i].toString()} PTS`;
-      list.appendChild(li);
-    }
-
-  } catch (err) {
-    console.error("LEADERBOARD ERROR:", err);
-    list.innerHTML = "<li style='color:red'>RPC SOMNIA tidak merespons</li>";
-  }
-
-})();
-</script>
+</body>
+</html>
