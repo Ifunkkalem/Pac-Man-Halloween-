@@ -4,55 +4,75 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Leaderboard</title>
+
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<style>body{font-family:Trebuchet MS;background:#111;color:#fff;padding:12px}h2{color:#00ffae}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #333}</style>
+
+<style>
+body{
+  font-family:Trebuchet MS;
+  background:#0b0b0b;
+  color:#fff;
+  padding:16px
+}
+h2{color:#00ffd5;text-shadow:0 0 10px #00ffd5}
+ul{list-style:none;padding:0}
+li{
+  padding:10px;
+  margin-bottom:8px;
+  border-radius:10px;
+  background:linear-gradient(90deg,#ff0000,#00ff9d);
+  color:#000;
+  font-weight:bold
+}
+</style>
 </head>
 <body>
-<h2>Pacman Leaderboard</h2>
-<ul id="leaderboard-list"></ul>
+
+<h2>🏆 TOP 10 PACMAN SOMNIA</h2>
+<ul id="leaderboard-list">Loading...</ul>
 
 <script>
 (async function(){
+
   const CONTRACT = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
-  const ABI = /* ABI array (same as contract.js) */ [
+
+  const ABI = [
     {"inputs":[{"internalType":"address","name":"_treasury","type":"address"},{"internalType":"uint256","name":"_startFeeWei","type":"uint256"},{"internalType":"uint256","name":"_maxScorePerSubmit","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},
-    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"fee","type":"uint256"}],"name":"GameStarted","type":"event"},
-    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"score","type":"uint256"}],"name":"ScoreSubmitted","type":"event"},
-    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Withdraw","type":"event"},
-    {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPlayers","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"getTop10","outputs":[{"internalType":"address[]","name":"topPlayers","type":"address[]"},{"internalType":"uint256[]","name":"scores","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"maxScorePerSubmit","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-    {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"players","outputs":[{"internalType":"uint256","name":"totalScore","type":"uint256"},{"internalType":"uint256","name":"lastPlayed","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"startFeeWei","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"startGame","outputs":[],"stateMutability":"payable","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"score","type":"uint256"}],"name":"submitScore","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"}
+    {"inputs":[],"name":"getTop10","outputs":[{"internalType":"address[]","name":"topPlayers","type":"address[]"},{"internalType":"uint256[]","name":"scores","type":"uint256[]"}],"stateMutability":"view","type":"function"}
   ];
 
   try {
-    if (!window.ethereum) {
-      document.getElementById('leaderboard-list').innerText = 'Please open in wallet-enabled browser.';
-      return;
-    }
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    // ✅ PAKAI RPC READ-ONLY (TIDAK BUTUH WALLET)
+    const RPC = "https://rpc.somnia.network";  // jika nanti kamu punya RPC resmi lain, boleh ganti
+    const provider = new ethers.providers.JsonRpcProvider(RPC);
+
     const contract = new ethers.Contract(CONTRACT, ABI, provider);
     const res = await contract.getTop10();
+
     const players = res[0];
-    const scores = res[1];
+    const scores  = res[1];
 
     const ul = document.getElementById('leaderboard-list');
-    ul.innerHTML = '';
-    for (let i=0;i<players.length;i++){
-      const li = document.createElement('li');
-      li.textContent = `${i+1}. ${players[i]} — ${scores[i].toString()}`;
+    ul.innerHTML = "";
+
+    if (players.length === 0) {
+      ul.innerHTML = "<li>Belum ada skor</li>";
+      return;
+    }
+
+    for (let i = 0; i < players.length; i++) {
+      const li = document.createElement("li");
+      li.textContent = `${i+1}. ${players[i]} — ${scores[i].toString()} PTS`;
       ul.appendChild(li);
     }
+
   } catch (e) {
-    console.error(e);
-    document.getElementById('leaderboard-list').innerText = 'Failed to load leaderboard.';
+    console.error("Leaderboard Error:", e);
+    document.getElementById('leaderboard-list').innerHTML = "<li>Gagal memuat leaderboard</li>";
   }
+
 })();
 </script>
+
 </body>
 </html>
