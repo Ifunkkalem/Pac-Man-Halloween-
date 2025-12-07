@@ -63,50 +63,36 @@
 </table>
 
 <script>
-/* ================================
-   ✅ CONFIG ASLI PUNYAMU
-================================ */
 const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
 
-/* ✅ RPC SOMNIA – JIKA PUNYA SENDIRI, GANTI DI SINI */
-const RPC_URL = "https://rpc.somnia.network";
+/* ✅ RPC STABIL */
+const RPC_URL = "https://rpc.ankr.com/eth";
 
-/* ✅ ABI YANG BENAR (getTop10) */
 const CONTRACT_ABI = [
   "function getTop10() view returns (address[] memory, uint256[] memory)"
 ];
 
-/* ================================
-   ✅ INIT READ-ONLY PROVIDER
-================================ */
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
-/* ================================
-   ✅ LOAD LEADERBOARD (STABIL, TANPA FLICKER)
-================================ */
 async function loadLeaderboard() {
-  try {
-    const status = document.getElementById("status");
-    const table  = document.getElementById("leaderboardTable");
-    const body   = document.getElementById("leaderboardBody");
+  const status = document.getElementById("status");
+  const table  = document.getElementById("leaderboardTable");
+  const body   = document.getElementById("leaderboardBody");
 
-    const result = await contract.getTop10(); // ✅ INI YANG BENAR
-    const addrs  = result[0];
-    const scores = result[1];
+  try {
+    const [addrs, scores] = await contract.getTop10();
 
     body.innerHTML = "";
 
     for (let i = 0; i < addrs.length; i++) {
-      const tr = document.createElement("tr");
-
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${addrs[i].slice(0, 6)}...${addrs[i].slice(-4)}</td>
-        <td>${Number(scores[i])}</td>
+      body.innerHTML += `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${addrs[i].slice(0,6)}...${addrs[i].slice(-4)}</td>
+          <td>${Number(scores[i])}</td>
+        </tr>
       `;
-
-      body.appendChild(tr);
     }
 
     status.style.display = "none";
@@ -114,12 +100,10 @@ async function loadLeaderboard() {
 
   } catch (err) {
     console.error("LEADERBOARD ERROR:", err);
-    document.getElementById("status").innerText =
-      "❌ Gagal terhubung ke blockchain leaderboard";
+    status.innerText = "❌ Gagal terhubung ke blockchain leaderboard";
   }
 }
 
-/* ✅ LOAD SEKALI SAJA */
 loadLeaderboard();
 </script>
 
