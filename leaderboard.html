@@ -16,7 +16,8 @@
 
     h2 {
       text-align: center;
-      margin-top: 10px;
+      margin: 10px 0;
+      text-shadow: 0 0 8px gold;
     }
 
     table {
@@ -33,13 +34,14 @@
     }
 
     tr:hover {
-      background: rgba(255, 215, 0, 0.1);
+      background: rgba(255, 215, 0, 0.15);
     }
 
     .loading {
       text-align: center;
       margin-top: 20px;
-      font-size: 16px;
+      font-size: 15px;
+      color: #ccc;
     }
   </style>
 </head>
@@ -62,15 +64,16 @@
 
 <script>
 /* ================================
-   ✅ CONFIG WAJIB
+   ✅ CONFIG ASLI PUNYAMU
 ================================ */
 const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
 
-// ✅ RPC PUBLIC SOMNIA (GANTI JIKA PERLU)
+/* ✅ RPC SOMNIA – JIKA PUNYA SENDIRI, GANTI DI SINI */
 const RPC_URL = "https://rpc.somnia.network";
 
+/* ✅ ABI YANG BENAR (getTop10) */
 const CONTRACT_ABI = [
-  "function getTopPlayers() view returns (address[] memory, uint256[] memory)"
+  "function getTop10() view returns (address[] memory, uint256[] memory)"
 ];
 
 /* ================================
@@ -80,15 +83,15 @@ const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
 /* ================================
-   ✅ LOAD LEADERBOARD TANPA FLICKER
+   ✅ LOAD LEADERBOARD (STABIL, TANPA FLICKER)
 ================================ */
 async function loadLeaderboard() {
   try {
     const status = document.getElementById("status");
-    const table = document.getElementById("leaderboardTable");
-    const body  = document.getElementById("leaderboardBody");
+    const table  = document.getElementById("leaderboardTable");
+    const body   = document.getElementById("leaderboardBody");
 
-    const result = await contract.getTopPlayers();
+    const result = await contract.getTop10(); // ✅ INI YANG BENAR
     const addrs  = result[0];
     const scores = result[1];
 
@@ -116,7 +119,7 @@ async function loadLeaderboard() {
   }
 }
 
-// ✅ Load 1x saja (TIDAK berkedip)
+/* ✅ LOAD SEKALI SAJA */
 loadLeaderboard();
 </script>
 
