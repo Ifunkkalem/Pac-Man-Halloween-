@@ -49,74 +49,63 @@
   <ul id="leaderboard-list"></ul>
 
   <script>
-  (async () => {
-    const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
+  <script>
+(async () => {
+  const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
 
-    const ABI = [
-      {
-        "inputs": [],
-        "name": "getTop10",
-        "outputs": [
-          { "internalType": "address[]", "name": "topPlayers", "type": "address[]" },
-          { "internalType": "uint256[]", "name": "scores", "type": "uint256[]" }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ];
+  const ABI = [{
+    "inputs": [],
+    "name": "getTop10",
+    "outputs": [
+      { "internalType": "address[]", "name": "topPlayers", "type": "address[]" },
+      { "internalType": "uint256[]", "name": "scores", "type": "uint256[]" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }];
 
-    const status = document.getElementById("status");
-    const list = document.getElementById("leaderboard-list");
+  const status = document.getElementById("status");
+  const list = document.getElementById("leaderboard-list");
 
-    try {
-      if (typeof ethers === "undefined") {
-        status.innerText = "❌ ethers.js gagal dimuat";
-        return;
-      }
-
-      status.innerText = "🔌 Connecting to Somnia Network...";
-
-      const provider = new ethers.providers.JsonRpcProvider(
-        "https://rpc.somnia.network",
-        {
-          name: "somnia",
-          chainId: 50312
-        }
-      );
-
-      const contract = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        ABI,
-        provider
-      );
-
-      status.innerText = "📡 Fetching leaderboard...";
-
-      const result = await contract.getTop10();
-
-      const players = result[0];
-      const scores  = result[1];
-
-      list.innerHTML = "";
-      status.innerText = "";
-
-      if (!players.length) {
-        list.innerHTML = "<li>Belum ada skor tersimpan</li>";
-        return;
-      }
-
-      for (let i = 0; i < players.length; i++) {
-        const li = document.createElement("li");
-        li.innerText = `${i+1}. ${players[i]} — ${scores[i].toString()} PTS`;
-        list.appendChild(li);
-      }
-
-    } catch (err) {
-      console.error("LEADERBOARD ERROR:", err);
-      status.innerText = "❌ Gagal terhubung ke blockchain";
+  try {
+    if (!window.ethereum) {
+      status.innerText = "❌ Wallet tidak terdeteksi";
+      return;
     }
-  })();
-  </script>
 
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+
+    const network = await provider.getNetwork();
+    console.log("Connected Network:", network);
+
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
+    status.innerText = "📡 Mengambil data leaderboard...";
+
+    const result = await contract.getTop10();
+    const players = result[0];
+    const scores  = result[1];
+
+    list.innerHTML = "";
+    status.innerText = "";
+
+    if (!players.length) {
+      list.innerHTML = "<li>Belum ada skor tersimpan</li>";
+      return;
+    }
+
+    for (let i = 0; i < players.length; i++) {
+      const li = document.createElement("li");
+      li.innerText = `${i+1}. ${players[i]} — ${scores[i].toString()} PTS`;
+      list.appendChild(li);
+    }
+
+  } catch (err) {
+    console.error("LEADERBOARD ERROR:", err);
+    status.innerText = "❌ Gagal terhubung ke blockchain";
+  }
+})();
+</script>
 </body>
 </html>
