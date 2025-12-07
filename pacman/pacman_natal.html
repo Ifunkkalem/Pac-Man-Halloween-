@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pacman Natal - Final (Fixed)</title>
+<title>Pacman Natal - Final (Fixed Timing & Audio)</title>
 <style>
   html,body{height:100%;margin:0;background:#000;display:flex;align-items:center;justify-content:center;font-family:Trebuchet MS;overflow:hidden}
   #ui{position:fixed;top:10px;left:10px;color:#fff;z-index:99}
@@ -64,7 +64,7 @@
 
 <script>
 /* ============================
-   Pacman Final (cleaned)
+   Pacman Fixed: consistent timing + audio fallback logs
    ============================ */
 
 /* CONFIG */
@@ -104,10 +104,17 @@ canvas.height = MAP_HEIGHT * TILE_SIZE;
 let pacman, ghosts, score, mapData;
 let gameRunning = false;
 let animationFrameId = null;
-let lastTick = 0;
+let lastTime = 0;
 let GAME_UPDATE_INTERVAL = 150; // default normal
 
-/* INITIAL RESET */
+/* AUDIO ELEMENTS */
+const bgm = document.getElementById('bgm');
+const sndCoin = document.getElementById('sndCoin');
+const sndWin = document.getElementById('sndWin');
+const sndLose = document.getElementById('sndLose');
+const victoryOverlay = document.getElementById('victoryOverlay');
+
+/* RESET/INIT */
 function resetMapData(){
   mapData = GAME_MAP.map(row=>[...row]);
   score = 0;
@@ -243,7 +250,7 @@ function checkCollision(){
     if(score > 3000) score = 3000;
     document.getElementById('current-score-display').textContent = score;
     spawnSparkle(pacman.x, pacman.y);
-    try{ document.getElementById('sndCoin').currentTime = 0; document.getElementById('sndCoin').play(); } catch(e){}
+    try{ sndCoin.currentTime = 0; sndCoin.play(); } catch(e){ console.warn('sndCoin play failed', e); }
   }
   for(const g of ghosts){
     if(g.x === pacman.x && g.y === pacman.y){
@@ -258,7 +265,7 @@ function checkCollision(){
 function endGame(isWin){
   if(!gameRunning) return;
   gameRunning = false;
-  cancelAnimationFrame(animationFrameId);
+  if(animationFrameId) cancelAnimationFrame(animationFrameId);
   canvas.classList.add('shake');
   setTimeout(()=>canvas.classList.remove('shake'),420);
 
@@ -267,15 +274,9 @@ function endGame(isWin){
   gm.textContent = msg + " Skor: " + score;
   gm.style.display = 'block';
 
-  // audio + overlay
   try{ bgm.pause(); bgm.currentTime = 0; } catch(e){}
-  if(isWin){
-    try{ sndWin.play(); } catch(e){}
-    victoryOverlay.style.display = 'flex';
-    setTimeout(()=>victoryOverlay.style.display='none',3500);
-  } else {
-    try{ sndLose.play(); } catch(e){}
-  }
+  if(isWin){ try{ sndWin.play(); } catch(e){ console.warn('sndWin fail', e); } victoryOverlay.style.display='flex'; setTimeout(()=>victoryOverlay.style.display='none',3500); }
+  else { try{ sndLose.play(); } catch(e){ console.warn('sndLose fail', e); } }
 
   if(score > 0 || isWin){
     window.parent.postMessage({ type: 'submitScore', score: score }, '*');
@@ -284,20 +285,22 @@ function endGame(isWin){
   }
 
   setTimeout(()=>{
-    gm.style.display = 'none';
+    gm.style.display='none';
     window.parent.postMessage({ type: 'showLeaderboard' }, '*');
   }, 4000);
 }
 
-/* GAME LOOP */
+/* GAME LOOP (uses single lastTime var) */
 function gameLoop(timestamp){
   if(!gameRunning) return;
-  const dt = timestamp - lastTick;
-  lastTick = timestamp;
+  if(!lastTime) lastTime = timestamp;
+  const dt = timestamp - lastTime;
+  // update game at interval
   if(dt >= GAME_UPDATE_INTERVAL){
     movePacman();
     moveGhosts();
     checkCollision();
+    lastTime = timestamp;
   }
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawMap(); drawPacman(); drawGhosts();
@@ -309,11 +312,6 @@ function gameLoop(timestamp){
    ------------------------- */
 const levelPanel = document.getElementById('levelPanel');
 const countdownEl = document.getElementById('countdown');
-const bgm = document.getElementById('bgm');
-const sndCoin = document.getElementById('sndCoin');
-const sndWin = document.getElementById('sndWin');
-const sndLose = document.getElementById('sndLose');
-const victoryOverlay = document.getElementById('victoryOverlay');
 
 function setLevel(lvl){
   if(lvl === 'easy') GAME_UPDATE_INTERVAL = 220;
@@ -324,7 +322,8 @@ function setLevel(lvl){
 }
 
 function startCountdownAndStart(){
-  // ensure fresh state
+  // reset lastTime to avoid dt huge/negative
+  lastTime = 0;
   resetMapData();
   countdownEl.style.display = 'flex';
   let n = 3;
@@ -344,9 +343,19 @@ function startCountdownAndStart(){
 }
 
 function startGameLoop(){
-  try{ bgm.volume = 0.35; bgm.play(); } catch(e){}
+  // try to play bgm - since user clicked levelBtn, browser should allow
+  try{
+    bgm.volume = 0.35;
+    const playPromise = bgm.play();
+    if(playPromise && playPromise.catch){
+      playPromise.catch(err => {
+        console.warn('BGM play blocked by browser:', err);
+      });
+    }
+  } catch(e){ console.warn('bgm play error', e); }
+
   gameRunning = true;
-  lastTick = performance.now();
+  lastTime = 0; // reset so first dt is measured properly
   animationFrameId = requestAnimationFrame(gameLoop);
 }
 
@@ -354,7 +363,6 @@ function startGameLoop(){
    Parent communication (pay + fee)
    ------------------------- */
 function safeResetAndShowLevel(){
-  // stop any running loop
   gameRunning = false;
   if(animationFrameId) cancelAnimationFrame(animationFrameId);
   resetMapData();
@@ -365,7 +373,6 @@ function safeResetAndShowLevel(){
 window.addEventListener('message',(ev)=>{
   const d = ev.data || {};
   if(d.type === 'paySuccess'){
-    // stop any existing game and show level selection (or start immediately if you prefer)
     safeResetAndShowLevel();
   }
   if(d.type === 'startFee'){
@@ -423,8 +430,8 @@ function resetGame(){
 
 resetGame();
 
-/* dev: uncomment to simulate pay for quick local testing
-setTimeout(()=>{ window.postMessage({type:'paySuccess'}, '*'); }, 800);
+/* dev helper: uncomment to simulate pay for local test
+// setTimeout(()=>{ window.postMessage({type:'paySuccess'}, window.location.origin); }, 1200);
 */
 
 </script>
