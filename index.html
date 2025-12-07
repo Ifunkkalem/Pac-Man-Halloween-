@@ -4,22 +4,33 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>SOMNIA CHRISTMAS CARNIVAL 🎅</title>
+
 <script src="https://cdn.ethers.io/lib/ethers-5.umd.min.js"></script>
+
 <style>
-/* --- TATA LETAK UTAMA --- */
+/* --- TATA LETAK UTAMA (REVISI) --- */
 html, body {
     height: 100%; margin: 0; background: #000;
     font-family: Arial, sans-serif; color: #fff;
     display: flex; flex-direction: column; align-items: center;
     overflow-x: hidden;
 }
+h1 { color: #ff0000; margin: 10px 0; text-shadow: 0 0 5px #ffcccc; }
+.label { font-size: 12px; color: #aaa; margin-top: 5px; }
+#gameMessage { color: #facc15; font-weight: bold; padding: 5px; background: rgba(0,0,0,0.5); border-radius: 4px; display: block; margin-bottom: 10px;}
+
 #main-container {
-    display: flex; max-width: 1000px; width: 100%;
-    flex-grow: 1; margin-top: 10px;
+    display: flex; 
+    max-width: 1000px; 
+    width: 100%; 
+    flex-grow: 1; 
+    margin-top: 10px;
 }
+
 /* --- SIDEBAR KIRI (KONTROL) --- */
 #sidebar {
-    width: 200px; padding: 10px; flex-shrink: 0;
+    width: 250px; /* Lebar Sidebar di PC/Tablet */
+    padding: 10px; flex-shrink: 0;
     background: #440000; border-radius: 8px;
     box-shadow: 0 0 10px #ff0000;
     display: flex; flex-direction: column;
@@ -41,8 +52,11 @@ button {
     display: flex; flex-direction: column; align-items: center;
 }
 .game-iframe, #leaderboardFrame {
-    width: 100%; height: 100%; border: none;
-    background: #000; min-height: 400px;
+    width: 100%; 
+    height: 100%; 
+    border: none;
+    background: #000; 
+    min-height: 450px; 
     border-radius: 8px;
 }
 #leaderboardFrame { display: none; }
@@ -56,11 +70,11 @@ button {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 200px; /* Lebar total D-Pad */
+    width: 180px; 
 }
 .dpad-btn {
-    width: 65px; 
-    height: 65px; 
+    width: 55px; 
+    height: 55px; 
     padding: 0;
     margin: 3px 0;
     font-size: 24px;
@@ -77,8 +91,8 @@ button {
     justify-content: space-between;
 }
 .center-filler {
-    width: 65px; 
-    height: 65px;
+    width: 55px; 
+    height: 55px;
     margin: 3px 0;
     visibility: hidden; 
 }
@@ -88,21 +102,25 @@ button {
     transform: translateY(4px);
 }
 
-/* Header */
-h1 { color: #ff0000; margin: 10px 0; text-shadow: 0 0 5px #ffcccc; }
-.label { font-size: 12px; color: #aaa; margin-top: 5px; }
-#gameMessage { color: #facc15; font-weight: bold; padding: 5px; background: rgba(0,0,0,0.5); border-radius: 4px; display: block; margin-bottom: 10px;}
-
-/* RESPONSIVITAS MOBILE */
+/* --- RESPONSIVITAS MOBILE (MAX-WIDTH 768px) --- */
 @media (max-width: 768px) {
-    #main-container { flex-direction: column; }
-    #sidebar { width: 95%; margin-bottom: 15px; }
-    #game-area { padding: 0; }
-    /* D-Pad Responsive */
-    #dpad-container-cross { width: 180px; }
-    .dpad-btn { width: 55px; height: 55px; font-size: 20px; }
-    .center-filler { width: 55px; height: 55px; }
-    .game-iframe, #leaderboardFrame { min-height: 300px; }
+    #main-container { 
+        flex-direction: column; 
+        padding: 0 10px; 
+    }
+    #sidebar { 
+        width: 100%; 
+        margin-bottom: 15px; 
+        box-sizing: border-box; 
+    }
+    #game-area { 
+        padding: 0; 
+        width: 100%; 
+    }
+    .game-iframe, #leaderboardFrame { 
+        min-height: 400px; 
+    }
+    #dpad-container-cross { margin: 10px auto; }
 }
 </style>
 </head>
