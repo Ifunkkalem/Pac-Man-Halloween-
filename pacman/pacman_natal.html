@@ -35,7 +35,7 @@ button{padding:10px;border-radius:8px;border:none;background:linear-gradient(90d
   // Paste the game logic you provided, but adapt start/lock behavior:
   const canvas = document.getElementById('pacman-canvas');
   const ctx = canvas.getContext('2d');
-  const TILE_SIZE = 20;
+  const TILE_SIZE = window.innerWidth < 768 ? 28 : 24;
   const GAME_MAP = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
@@ -196,40 +196,7 @@ button{padding:10px;border-radius:8px;border:none;background:linear-gradient(90d
   }
 
   function moveGhosts() {
-      ghosts.forEach(ghost => {
-          const possibleMoves = [];
-          const moves = [
-              { dx: 1, dy: 0, dir: 'right' },
-              { dx: -1, dy: 0, dir: 'left' },
-              { dx: 0, dy: 1, dir: 'down' },
-              { dx: 0, dy: -1, dir: 'up' }
-          ];
-
-          moves.forEach(move => {
-              const nextX = ghost.x + move.dx;
-              const nextY = ghost.y + move.dy;
-
-              if (mapData[nextY] && mapData[nextY][nextX] !== 1) {
-                  possibleMoves.push(move);
-              }
-          });
-
-          if (possibleMoves.length > 0) {
-              // Simple chasing bias: prefer moves that reduce distance to pacman
-              possibleMoves.sort((a,b)=>{
-                const ax = ghost.x + a.dx - pacman.x; const ay = ghost.y + a.dy - pacman.y;
-                const bx = ghost.x + b.dx - pacman.x; const by = ghost.y + b.dy - pacman.y;
-                const da = Math.hypot(ax,ay), db = Math.hypot(bx,by);
-                return da - db;
-              });
-              // sometimes pick the best, sometimes randomize for challenge
-              const pick = Math.random() < 0.7 ? possibleMoves[0] : possibleMoves[Math.floor(Math.random()*possibleMoves.length)];
-              ghost.x += pick.dx;
-              ghost.y += pick.dy;
-              ghost.dir = pick.dir;
-          }
-      });
-  }
+      
 
   function checkCollision() {
       if (mapData[pacman.y][pacman.x] === 2) {
@@ -249,8 +216,17 @@ button{padding:10px;border-radius:8px;border:none;background:linear-gradient(90d
       if (dotsRemaining === 0) endGame(true);
   }
 
-  let lastTime = 0;
-  const GAME_UPDATE_INTERVAL = 150;
+  let lastTime = 0let ghostMoveSkip = 0;
+
+function moveGhosts() {
+  ghostMoveSkip++;
+  if (ghostMoveSkip % 2 !== 0) return; // ghost bergerak 1x tiap 2 frame
+
+  ghosts.forEach(ghost => {
+    ...
+  });
+};
+  const GAME_UPDATE_INTERVAL = 220;
   let gameUpdateTimer = 0;
   let animationFrameId = null;
 
