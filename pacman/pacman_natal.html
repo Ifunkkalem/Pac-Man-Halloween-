@@ -361,7 +361,29 @@ function setLevel(lvl){
   startCountdownThenStart();
 }
 
-function startCountdownThenStart(){
+function startCountdownAndPlay() {
+  const gm = document.getElementById('game-message');
+  let count = 3;
+
+  gm.style.display = 'block';
+  gm.textContent = count;
+
+  const timer = setInterval(() => {
+    count--;
+
+    if (count > 0) {
+      gm.textContent = count;
+    } else {
+      clearInterval(timer);
+      gm.style.display = 'none';
+
+      // ✅ INI KUNCI AGAR GAME BENAR-BENAR JALAN
+      gameRunning = true;
+      lastTime = performance.now();
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+  }, 1000);
+}
   resetMapData(); // ensure fresh
   countdownEl.style.display='flex';
   let n = 3;
