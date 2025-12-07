@@ -2,59 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SOMNIA Leaderboard</title>
-
-  <script src="libs/ethers.min.js"></script>
-
+  <title>🏆 SOMNIA Leaderboard</title>
+  <script src="ethers.min.js"></script>
   <style>
     body {
-      margin: 0;
-      background: #0b0b0b;
-      color: gold;
+      background: radial-gradient(circle at top, #7f1d1d, #020617);
+      color: white;
       font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
     }
 
     h2 {
-      text-align: center;
+      color: gold;
+      text-shadow: 0 0 10px gold;
+      margin-bottom: 10px;
+    }
+
+    #status {
       margin: 10px 0;
-      text-shadow: 0 0 8px gold;
+      color: #facc15;
     }
 
     table {
       width: 100%;
+      margin-top: 15px;
       border-collapse: collapse;
-      margin-top: 10px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 10px;
+      overflow: hidden;
     }
 
     th, td {
-      border-bottom: 1px solid #333;
-      padding: 8px;
-      text-align: center;
-      font-size: 14px;
+      padding: 10px;
+      border-bottom: 1px solid #334155;
     }
 
-    tr:hover {
-      background: rgba(255, 215, 0, 0.15);
+    th {
+      background: #020617;
+      color: #facc15;
     }
 
-    .loading {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 15px;
-      color: #ccc;
+    tr:nth-child(even) {
+      background: rgba(255,255,255,0.05);
     }
   </style>
 </head>
-
 <body>
 
 <h2>🏆 SOMNIA LEADERBOARD</h2>
-<div id="status" class="loading">Loading blockchain data...</div>
+<p id="status">⏳ Loading blockchain data...</p>
 
 <table id="leaderboardTable" style="display:none">
   <thead>
     <tr>
-      <th>No</th>
+      <th>#</th>
       <th>Wallet</th>
       <th>Total Score</th>
     </tr>
@@ -63,47 +65,60 @@
 </table>
 
 <script>
+/* ================== KONFIG FINAL ================== */
 const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
 
-/* ✅ RPC STABIL */
-const RPC_URL = "https://rpc.ankr.com/eth";
+const RPC_URL  = "https://api.infra.mainnet.somnia"; // ✅ RPC RESMI SOMNIA
+const CHAIN_ID = 5031;
 
 const CONTRACT_ABI = [
   "function getTop10() view returns (address[] memory, uint256[] memory)"
 ];
+/* ================================================== */
 
-const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+const statusEl = document.getElementById("status");
+const bodyEl   = document.getElementById("leaderboardBody");
+const tableEl  = document.getElementById("leaderboardTable");
 
+/* ✅ READ-ONLY PROVIDER (TIDAK PERLU WALLET CONNECT) */
+const provider = new ethers.providers.JsonRpcProvider(RPC_URL, {
+  name: "Somnia Mainnet",
+  chainId: CHAIN_ID
+});
+
+const contract = new ethers.Contract(
+  CONTRACT_ADDRESS,
+  CONTRACT_ABI,
+  provider
+);
+
+/* ✅ LOAD LEADERBOARD TANPA KEDIP */
 async function loadLeaderboard() {
-  const status = document.getElementById("status");
-  const table  = document.getElementById("leaderboardTable");
-  const body   = document.getElementById("leaderboardBody");
-
   try {
-    const [addrs, scores] = await contract.getTop10();
+    const [wallets, scores] = await contract.getTop10();
 
-    body.innerHTML = "";
+    bodyEl.innerHTML = "";
 
-    for (let i = 0; i < addrs.length; i++) {
-      body.innerHTML += `
+    for (let i = 0; i < wallets.length; i++) {
+      bodyEl.innerHTML += `
         <tr>
           <td>${i + 1}</td>
-          <td>${addrs[i].slice(0,6)}...${addrs[i].slice(-4)}</td>
+          <td>${wallets[i].slice(0, 6)}...${wallets[i].slice(-4)}</td>
           <td>${Number(scores[i])}</td>
         </tr>
       `;
     }
 
-    status.style.display = "none";
-    table.style.display = "table";
+    statusEl.style.display = "none";
+    tableEl.style.display = "table";
 
   } catch (err) {
     console.error("LEADERBOARD ERROR:", err);
-    status.innerText = "❌ Gagal terhubung ke blockchain leaderboard";
+    statusEl.innerText = "❌ Gagal terhubung ke blockchain leaderboard";
   }
 }
 
+/* ✅ LOAD SEKALI SAJA (ANTI BLINKING) */
 loadLeaderboard();
 </script>
 
