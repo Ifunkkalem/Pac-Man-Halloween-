@@ -5,8 +5,8 @@
 <title>Pacman Somnia Leaderboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- ✅ ETHERS v5 STABIL -->
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+<!-- ✅ LOAD ETHERS DARI FILE LOKAL -->
+<script src="ethers.min.js"></script>
 
 <style>
 body {
@@ -49,6 +49,12 @@ li {
 
 <script>
 (async function () {
+  if (typeof ethers === "undefined") {
+    document.getElementById("leaderboard-list").innerHTML =
+      "<li class='error'>ethers.js gagal dimuat</li>";
+    return;
+  }
+
   const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
 
   const ABI = [
@@ -67,9 +73,10 @@ li {
   const list = document.getElementById("leaderboard-list");
 
   try {
-    // ✅ RPC READ-ONLY (TIDAK BUTUH WALLET)
-    const RPC_URL = "https://rpc.somnia.network"; 
-    const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+    // ✅ PAKAI PROVIDER DEFAULT (AUTO)
+    const provider = new ethers.providers.JsonRpcProvider(
+      "https://rpc.ankr.com/eth"
+    );
 
     const contract = new ethers.Contract(
       CONTRACT_ADDRESS,
@@ -96,7 +103,7 @@ li {
 
   } catch (err) {
     console.error("LEADERBOARD ERROR:", err);
-    list.innerHTML = `<li class="error">Gagal memuat leaderboard</li>`;
+    list.innerHTML = "<li class='error'>Gagal memuat leaderboard</li>";
   }
 })();
 </script>
