@@ -65,26 +65,35 @@
 </table>
 
 <script>
-/* ================== KONFIG FINAL ================== */
+// ================= KONFIG FINAL =================
 const CONTRACT_ADDRESS = "0xD76b767102f2610b0C97FEE84873c1fAA4c7C365";
-
-const RPC_URL  = "https://api.infra.mainnet.somnia"; // ✅ RPC RESMI SOMNIA
 const CHAIN_ID = 5031;
 
+// ABI leaderboard
 const CONTRACT_ABI = [
   "function getTop10() view returns (address[] memory, uint256[] memory)"
 ];
-/* ================================================== */
+// ===============================================
 
 const statusEl = document.getElementById("status");
 const bodyEl   = document.getElementById("leaderboardBody");
 const tableEl  = document.getElementById("leaderboardTable");
 
-/* ✅ READ-ONLY PROVIDER (TIDAK PERLU WALLET CONNECT) */
-const provider = new ethers.providers.JsonRpcProvider(RPC_URL, {
-  name: "Somnia Mainnet",
-  chainId: CHAIN_ID
-});
+let provider;
+
+// ✅ PRIORITAS: WALLET PROVIDER (ANTI CORS)
+if (window.ethereum) {
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  console.log("✅ Using Wallet Provider");
+} 
+// ✅ FALLBACK (JIKA WALLET TIDAK ADA)
+else {
+  provider = new ethers.providers.JsonRpcProvider(
+    "https://api.infra.mainnet.somnia",
+    { name: "Somnia Mainnet", chainId: CHAIN_ID }
+  );
+  console.log("⚠️ Using RPC Fallback");
+}
 
 const contract = new ethers.Contract(
   CONTRACT_ADDRESS,
@@ -92,7 +101,6 @@ const contract = new ethers.Contract(
   provider
 );
 
-/* ✅ LOAD LEADERBOARD TANPA KEDIP */
 async function loadLeaderboard() {
   try {
     const [wallets, scores] = await contract.getTop10();
@@ -118,7 +126,7 @@ async function loadLeaderboard() {
   }
 }
 
-/* ✅ LOAD SEKALI SAJA (ANTI BLINKING) */
+// ✅ LOAD SEKALI SAJA (ANTI KEDIP)
 loadLeaderboard();
 </script>
 
