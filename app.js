@@ -73,23 +73,17 @@ async function payToPlay() {
   }
 }
 
-async function submitScoreFromParent(score) {
-  if (!gameContract || !signer) {
-    alert("Connect wallet dulu sebelum submit skor.");
-    return;
-  }
-  try {
-    // sanitize score
-    const s = Math.max(0, Math.min(3000, Number(score || 0)));
-    const tx = await gameContract.submitScore(s);
-    await tx.wait();
-    alert("Skor terkirim ke leaderboard ✅");
-    // optional: refresh leaderboard
-    loadLeaderboardFrame();
-  } catch (err) {
-    console.error(err);
-    alert("Gagal submit skor: " + (err.message || err));
-  }
+async function submitScoreTx(latestScore) {
+  if (!gameContract || !currentAccount) return;
+
+  // ✅ AMBIL TOTAL SCORE SEBELUMNYA
+  const playerData = await gameContract.players(currentAccount);
+  const oldScore = Number(playerData.totalScore);
+
+  const newTotal = oldScore + latestScore;
+
+  const tx = await gameContract.submitScore(newTotal);
+  await tx.wait();
 }
 
 async function loadLeaderboardFrame() {
