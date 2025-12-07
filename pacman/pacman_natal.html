@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pacman Natal - Final (Fixed Timing & Audio)</title>
+<title>Pacman Natal - Game</title>
 <style>
   /* --- STYLES DIPERBARUI UNTUK RESPONSIVITAS --- */
   html,body{height:100%;margin:0;background:#000;display:flex;align-items:center;justify-content:center;font-family:Trebuchet MS;overflow:hidden}
@@ -18,21 +18,17 @@
     border-radius:8px;
     box-shadow:0 0 25px #00ffcc,inset 0 0 20px #00ffcc;
     display:block;
-    width: 95%; /* Akan disesuaikan oleh JS */
-    height: auto; /* Akan disesuaikan oleh JS */
+    width: 95%; 
+    height: auto; 
   }
   
-  /* Level panel and overlays (tetap) */
+  /* Level panel and overlays */
   #levelPanel{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;flex-direction:column;color:#fff;z-index:200}
   .levelBtn{margin:10px;padding:14px 26px;font-size:20px;border-radius:12px;border:none;background:#fbbf24;color:#000;cursor:pointer}
   #countdown{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;font-size:120px;font-weight:bold;color:gold;z-index:300;text-shadow:0 0 30px gold}
   #victoryOverlay{position:fixed;inset:0;background:radial-gradient(circle,#00ffcc33,#000);display:none;align-items:center;justify-content:center;font-size:48px;font-weight:bold;color:gold;z-index:400;text-shadow:0 0 20px gold}
 
-  /* Effects */
-  .coin-sparkle{position:absolute;pointer-events:none;width:10px;height:10px;border-radius:50%;background:gold;opacity:1;animation:sparkle 0.6s forwards;z-index:110}
-  @keyframes sparkle{from{transform:scale(1);opacity:1}to{transform:scale(2.8);opacity:0}}
-  .shake{animation:shake 0.42s}
-  @keyframes shake{0%{transform:translate(2px,1px)}25%{transform:translate(-2px,-3px)}50%{transform:translate(3px,2px)}75%{transform:translate(-2px,2px)}100%{transform:translate(0,0)}}
+  /* Snow effect */
   .snow{position:fixed;top:-10px;color:white;font-size:12px;opacity:0.9;animation:fall linear forwards;z-index:10}
   @keyframes fall{to{transform:translateY(110vh)}}
 </style>
@@ -56,18 +52,15 @@
 <div id="countdown">3</div>
 <div id="victoryOverlay">🏆 YOU WIN!</div>
 
-<audio id="bgm" loop src="https://cdn.pixabay.com/audio/2022/10/25/audio_87c07c7a1f.mp3"></audio>
-<audio id="sndCoin" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-coin-216.wav"></audio>
-<audio id="sndWin" src="https://assets.mixkit.co/sfx/preview/mixkit-ethereal-fairy-win-sound-2019.wav"></audio>
-<audio id="sndLose" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-game-over-213.wav"></audio>
+<audio id="sndLose" src="pacman/assets/sfx_lose.wav"></audio> 
 
 <script>
 /* ============================
-   Pacman Fixed: consistent timing + audio fallback logs
+   Pacman Game Core
    ============================ */
 
 /* CONFIG */
-const TILE_SIZE = 20; // Nilai awal (default)
+const TILE_SIZE = 20; 
 const canvas = document.getElementById('pacman-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -102,26 +95,18 @@ let gameRunning = false;
 let animationFrameId = null;
 let lastTime = 0;
 let GAME_UPDATE_INTERVAL = 150; 
-window.currentTileSize = TILE_SIZE; // Variabel global untuk ukuran tile responsif
+window.currentTileSize = TILE_SIZE; 
 
 /* AUDIO ELEMENTS */
-const bgm = document.getElementById('bgm');
-const sndWin = document.getElementById('sndWin');
 const sndLose = document.getElementById('sndLose');
 const victoryOverlay = document.getElementById('victoryOverlay');
 
-/* --- FUNGSI BARU: SKALA RESPONSIVE (PENTING!) --- */
+/* --- FUNGSI BARU: SKALA RESPONSIVE --- */
 function resizeCanvas(){
-    const maxDim = Math.min(window.innerWidth, window.innerHeight);
-    let effectiveWidth;
+    const containerWidth = canvas.parentNode.clientWidth;
+    const maxGameWidth = Math.min(containerWidth * 0.95, 800); 
     
-    if(window.innerWidth > window.innerHeight){
-        effectiveWidth = Math.min(maxDim * 0.9, 800); 
-    } else {
-        effectiveWidth = window.innerWidth * 0.9;
-    }
-
-    const newCanvasWidth = Math.floor(effectiveWidth / MAP_WIDTH) * MAP_WIDTH;
+    const newCanvasWidth = Math.floor(maxGameWidth / MAP_WIDTH) * MAP_WIDTH;
     
     canvas.width = newCanvasWidth;
     canvas.height = newCanvasWidth / MAP_WIDTH * MAP_HEIGHT;
@@ -132,7 +117,6 @@ function resizeCanvas(){
 }
 
 window.addEventListener('resize', resizeCanvas);
-/* --- AKHIR FUNGSI SKALA RESPONSIVE --- */
 
 
 /* RESET/INIT */
@@ -140,7 +124,6 @@ function resetMapData(){
   const ts = window.currentTileSize;
   mapData = GAME_MAP.map(row=>[...row]);
   score = 0;
-  // Menggunakan currentTileSize di sini
   pacman = { x:1, y:1, dir:'right', nextDir:'right', radius:ts/2.5 };
   ghosts = [
     { x:9, y:9, color:'#cc0000', dir:'up' },
@@ -156,7 +139,7 @@ function drawMap(){
     for(let x=0;x<MAP_WIDTH;x++){
       const t = mapData[y][x];
       if(t === 1){
-        ctx.fillStyle = '#b91c1c';
+        ctx.fillStyle = '#b91c1c'; // Dinding Merah
         ctx.fillRect(x*ts,y*ts,ts,ts);
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
         ctx.strokeRect(x*ts,y*ts,ts,ts);
@@ -217,7 +200,6 @@ function drawPacman(){
   ctx.arc(hatX + radius*0.5, hatY - radius*1.5, radius*0.3, 0, Math.PI*2);
   ctx.fill();
 }
-/* --- AKHIR FUNGSI drawPacman --- */
 
 /* --- FUNGSI BARU: drawGhosts (Tema Natal) --- */
 function drawGhosts(){
@@ -258,18 +240,13 @@ function drawGhosts(){
     ctx.fill();
 
     // 3. Tambah Syal Natal (Hijau & Putih) 🧣
-    // Bagian Utama Syal (Hijau)
-    ctx.fillStyle = '#10b981'; // Hijau Natal
-    ctx.fillRect(x - ts/2, y + ts/4, ts, ts/8); // Melintang di leher
-    
-    // Ekor Syal (Kain menggantung)
+    ctx.fillStyle = '#10b981'; 
+    ctx.fillRect(x - ts/2, y + ts/4, ts, ts/8); 
     ctx.fillRect(x - ts/4, y + ts/4, ts/10, ts/3); 
-
-    // Aksen Putih (Garis tengah syal)
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(x - ts/2, y + ts/4 + ts/40, ts, ts/40); 
 
-    // 4. Ghost Eyes (LOGIC LAMA: harus di gambar terakhir)
+    // 4. Ghost Eyes
     ctx.fillStyle = 'white';
     ctx.beginPath();
     ctx.arc(x - ts/4, y - ts/4, ts/8, 0, Math.PI*2);
@@ -282,7 +259,6 @@ function drawGhosts(){
     ctx.fill();
   });
 }
-/* --- AKHIR FUNGSI drawGhosts --- */
 
 function drawOnce(){ ctx.clearRect(0,0,canvas.width,canvas.height); drawMap(); drawPacman(); drawGhosts(); }
 
@@ -290,7 +266,6 @@ function drawOnce(){ ctx.clearRect(0,0,canvas.width,canvas.height); drawMap(); d
 function canMove(x,y){ return mapData[y] && mapData[y][x] !== 1; }
 
 function movePacman(){
-  // Logic pergerakan Pacman (tidak diubah)
   const nd = pacman.nextDir;
   const nx = pacman.x + (nd==='right'?1:nd==='left'?-1:0);
   const ny = pacman.y + (nd==='down'?1:nd==='up'?-1:0);
@@ -330,28 +305,13 @@ function moveGhosts(){
 }
 
 /* COLLISION & SCORE */
-function spawnSparkle(gridX, gridY){
-  const ts = window.currentTileSize;
-  const el = document.createElement('div');
-  el.className = 'coin-sparkle';
-  const rect = canvas.getBoundingClientRect();
-  const left = rect.left + gridX * ts + ts/2 - 5;
-  const top = rect.top + gridY * ts + ts/2 - 5;
-  el.style.left = left + 'px';
-  el.style.top = top + 'px';
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(),700);
-}
-
 function checkCollision(){
   if(mapData[pacman.y][pacman.x] === 2){
     mapData[pacman.y][pacman.x] = 0;
     score += 10;
-    if(score > 3000) score = 3000;
     document.getElementById('current-score-display').textContent = score;
-    spawnSparkle(pacman.x, pacman.y);
     
-    // --- INTEGRASI SUARA BARU: Kirim pesan ke parent (app.js) ---
+    // --- INTEGRASI SUARA: Kirim pesan dotEaten ke app.js ---
     window.parent.postMessage({ type: 'dotEaten' }, '*');
   }
   for(const g of ghosts){
@@ -368,18 +328,21 @@ function endGame(isWin){
   if(!gameRunning) return;
   gameRunning = false;
   if(animationFrameId) cancelAnimationFrame(animationFrameId);
-  canvas.classList.add('shake');
-  setTimeout(()=>canvas.classList.remove('shake'),420);
 
   const gm = document.getElementById('game-message');
-  const msg = isWin ? "SELAMAT! Anda menang dan membersihkan semua hadiah!" : "Misi Gagal! Grinch berhasil mencuri semua hadiah!";
+  const msg = isWin ? "SELAMAT! Anda menang!" : "Misi Gagal! Hantu menang!";
   gm.textContent = msg + " Skor: " + score;
   gm.style.display = 'block';
 
-  try{ bgm.pause(); bgm.currentTime = 0; } catch(e){}
-  if(isWin){ try{ sndWin.play(); } catch(e){ console.warn('sndWin fail', e); } victoryOverlay.style.display='flex'; setTimeout(()=>victoryOverlay.style.display='none',3500); }
-  else { try{ sndLose.play(); } catch(e){ console.warn('sndLose fail', e); } }
+  if(isWin){ 
+      victoryOverlay.style.display='flex'; 
+      setTimeout(()=>victoryOverlay.style.display='none',3500); 
+  }
+  else { 
+      try{ sndLose.play(); } catch(e){ console.warn('sndLose fail', e); } 
+  }
 
+  // Kirim skor ke app.js untuk submit ke blockchain
   if(score > 0 || isWin){
     window.parent.postMessage({ type: 'submitScore', score: score }, '*');
   } else {
@@ -388,7 +351,6 @@ function endGame(isWin){
 
   setTimeout(()=>{
     gm.style.display='none';
-    window.parent.postMessage({ type: 'showLeaderboard' }, '*');
   }, 4000);
 }
 
@@ -443,23 +405,13 @@ function startCountdownAndStart(){
 }
 
 function startGameLoop(){
-  try{
-    bgm.volume = 0.35;
-    const playPromise = bgm.play();
-    if(playPromise && playPromise.catch){
-      playPromise.catch(err => {
-        console.warn('BGM play blocked by browser:', err);
-      });
-    }
-  } catch(e){ console.warn('bgm play error', e); }
-
   gameRunning = true;
   lastTime = 0; 
   animationFrameId = requestAnimationFrame(gameLoop);
 }
 
 /* -------------------------
-   Parent communication (pay + fee + mobile input)
+   Parent communication & Controls
    ------------------------- */
 function safeResetAndShowLevel(){
   gameRunning = false;
@@ -481,12 +433,13 @@ window.addEventListener('message',(ev)=>{
     setTimeout(()=>gm.style.display='none',4000);
   }
   
-  // --- INTEGRASI KONTROL MOBILE BARU ---
+  // --- KONTROL MOBILE DARI app.js ---
   if(d.type === 'mobileInput' && gameRunning){
       const dir = d.direction.toLowerCase();
       if(dir !== 'stop'){
           pacman.nextDir = dir;
       }
+      // STOP tidak dihiraukan. Pacman bergerak terus sampai input baru atau menabrak dinding.
   }
 });
 
@@ -494,9 +447,8 @@ window.addEventListener('message',(ev)=>{
 window.parent.postMessage({ type:'requestStartFee' }, '*');
 
 /* -------------------------
-   Controls (Hanya Keyboard)
+   Controls (Hanya Keyboard PC)
    ------------------------- */
-// Menghapus listeners mobile controls lama
 window.addEventListener('keydown',(e)=>{
   if(e.key === 'ArrowUp') pacman.nextDir='up';
   if(e.key === 'ArrowDown') pacman.nextDir='down';
@@ -530,7 +482,6 @@ function resetGame(){
   gameRunning = false;
   if(animationFrameId) cancelAnimationFrame(animationFrameId);
   
-  // Panggil resizeCanvas agar game diskalakan di awal
   resizeCanvas(); 
   drawOnce();
 }
