@@ -1,169 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Somnia Christmas - Pacman</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>SOMNIA CHRISTMAS CARNIVAL 🎅</title>
+<script src="https://cdn.ethers.io/lib/ethers-5.umd.min.js"></script>
 <style>
-/* --- BASE STYLES --- */
-*{margin:0;padding:0;box-sizing:border-box;font-family:Trebuchet MS, sans-serif}
-body{height:100vh;background:linear-gradient(to right,#fff,#ff0000);color:#fff;overflow:hidden}
-#wrap{display:flex;height:100%} /* Default: PC/Dekstop view (sidebar di samping) */
+/* --- TATA LETAK UTAMA --- */
+html, body {
+    height: 100%; margin: 0; background: #000;
+    font-family: Arial, sans-serif; color: #fff;
+    display: flex; flex-direction: column; align-items: center;
+    overflow-x: hidden;
+}
+#main-container {
+    display: flex; max-width: 1000px; width: 100%;
+    flex-grow: 1; margin-top: 10px;
+}
+/* --- SIDEBAR KIRI (KONTROL) --- */
+#sidebar {
+    width: 200px; padding: 10px; flex-shrink: 0;
+    background: #440000; border-radius: 8px;
+    box-shadow: 0 0 10px #ff0000;
+    display: flex; flex-direction: column;
+}
+.control-group { margin-bottom: 15px; padding: 10px; border: 1px dashed #ffcccc; border-radius: 6px; }
+button {
+    width: 100%; padding: 12px; margin-bottom: 8px;
+    font-size: 16px; border: none; border-radius: 8px;
+    cursor: pointer; font-weight: bold;
+    transition: background-color 0.2s;
+}
+#connectWalletBtn { background: #16a34a; color: white; }
+#playBtn { background: #fbbf24; color: #000; display: none; }
+#leaderboardBtn { background: #ef4444; color: white; }
 
-/* SIDEBAR/BUTTONS (PC View) */
-#sidebar{width:140px;background:#fff;color:#000;padding:12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0}
-#main{flex:1;padding:10px;position:relative;display:flex;flex-direction:column;align-items:center;background:linear-gradient(to bottom,#ff0000,#800000)}
+/* --- AREA GAME/LEADERBOARD --- */
+#game-area {
+    flex-grow: 1; padding: 0 10px;
+    display: flex; flex-direction: column; align-items: center;
+}
+.game-iframe, #leaderboardFrame {
+    width: 100%; height: 100%; border: none;
+    background: #000; min-height: 400px;
+    border-radius: 8px;
+}
+#leaderboardFrame { display: none; }
 
-button{padding:10px;border-radius:8px;border:none;background:linear-gradient(90deg,red,green);color:#fff;cursor:pointer}
-#title{color:#00ffae;font-size:26px;text-shadow:0 0 10px #ff0;margin-bottom:12px}
-.footer{position:absolute;bottom:8px;color:#0ff;text-shadow:0 0 8px #0ff}
-#walletDisplay, #walletBalance {word-break:break-all;font-size:12px;color:#000}
-
-/* Game Frame / Leaderboard */
-iframe{width:100%;flex:1;border-radius:8px;border:0;display:none}
-
-/* --- MOBILE CONTROLS STYLING --- */
+/* --- D-PAD VIRTUAL (KONTROL MOBILE - Salib Style) --- */
 #mobile-controls {
-    display: none; /* Sembunyikan default (hanya untuk mobile) */
-    position: absolute;
-    bottom: 50px; /* Jarak dari bawah layar */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200px; /* Ukuran D-Pad */
-    user-select: none;
-    z-index: 100;
+    display: flex; justify-content: center; margin-top: 15px;
+    margin-bottom: 20px;
 }
-
-#mobile-controls button {
-    padding: 15px 25px;
-    margin: 5px;
-    font-size: 18px;
-    background: #ff0000;
-    border: 2px solid #fff;
-    color: #fff;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.dpad-row {
+#dpad-container-cross {
     display: flex;
-    justify-content: center;
-    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    width: 200px; /* Lebar total D-Pad */
 }
-
-.dpad-row:nth-child(2) {
+.dpad-btn {
+    width: 65px; 
+    height: 65px; 
+    padding: 0;
+    margin: 3px 0;
+    font-size: 24px;
+    border-radius: 10px; 
+    background: #ef4444; 
+    color: white;
+    border: 3px solid #ffcccc;
+    box-shadow: 0 4px #8b0000;
+    transition: background-color 0.1s, box-shadow 0.1s;
+}
+.row-center {
+    display: flex;
+    width: 100%; 
     justify-content: space-between;
 }
-
-/* --- RESPONSIVENESS (MOBILE STYLES) --- */
-@media (max-width: 768px) {
-    /* Layout: Sidebar berubah menjadi Header/Footer (Stacking) */
-    #wrap{
-        flex-direction: column; /* Ubah layout dari samping ke atas-bawah */
-        height: auto;
-        min-height: 100vh;
-    }
-    
-    /* Sidebar (sekarang menjadi Header/Footer mobile) */
-    #sidebar{
-        width: 100%; /* Lebar penuh */
-        padding: 8px;
-        flex-direction: row; /* Tombol berjejer horizontal */
-        justify-content: space-around;
-        gap: 5px;
-        position: sticky; /* Tetap di atas saat scrolling jika ada */
-        top: 0;
-        z-index: 20;
-    }
-    
-    /* Display Wallet: Sembunyikan untuk menghemat ruang atau pindahkan */
-    #walletDisplay, #walletBalance {
-        display: none; /* Sembunyikan info wallet di header mobile */
-    }
-    
-    /* Main Content */
-    #main{
-        padding: 0; /* Hapus padding agar iframe lebih besar */
-        flex: 1;
-        width: 100vw;
-    }
-    
-    /* Game Frame: Scaling */
-    iframe#gameFrame {
-        width: 100vw;
-        height: 60vh; /* Alokasi 60% tinggi layar untuk game */
-        /* Anda masih perlu memastikan game content (pacman_natal.html) itu sendiri responsif */
-    }
-    
-    /* Tampilkan Kontrol Mobile */
-    #mobile-controls {
-        display: flex;
-        position: relative; /* Posisikan relatif agar mengalir di dokumen */
-        margin-top: 20px;
-        margin-bottom: 20px;
-        bottom: auto;
-        left: auto;
-        transform: none;
-    }
-    
-    .footer {
-        position: relative;
-    }
+.center-filler {
+    width: 65px; 
+    height: 65px;
+    margin: 3px 0;
+    visibility: hidden; 
+}
+.dpad-btn:active {
+    background: #8b0000;
+    box-shadow: 0 0px #8b0000;
+    transform: translateY(4px);
 }
 
-/* --- SNOW ANIMATION --- */
-.snow{position:absolute;top:-20px;width:8px;height:8px;border-radius:50%;background:#fff;opacity:.85;animation:snowFall linear infinite}
-@keyframes snowFall{from{transform:translateY(0)}to{transform:translateY(120vh)}}
+/* Header */
+h1 { color: #ff0000; margin: 10px 0; text-shadow: 0 0 5px #ffcccc; }
+.label { font-size: 12px; color: #aaa; margin-top: 5px; }
+#gameMessage { color: #facc15; font-weight: bold; padding: 5px; background: rgba(0,0,0,0.5); border-radius: 4px; display: block; margin-bottom: 10px;}
+
+/* RESPONSIVITAS MOBILE */
+@media (max-width: 768px) {
+    #main-container { flex-direction: column; }
+    #sidebar { width: 95%; margin-bottom: 15px; }
+    #game-area { padding: 0; }
+    /* D-Pad Responsive */
+    #dpad-container-cross { width: 180px; }
+    .dpad-btn { width: 55px; height: 55px; font-size: 20px; }
+    .center-filler { width: 55px; height: 55px; }
+    .game-iframe, #leaderboardFrame { min-height: 300px; }
+}
 </style>
 </head>
 <body>
 
-<div id="wrap">
-  <div id="sidebar">
-    <button id="btnConnect" onclick="connectWallet()">Connect Wallet</button>
-    <div id="walletDisplay">Wallet: -</div>
-    <div id="walletBalance">Balance: -</div>
-    <button id="btnPlay" onclick="payToPlay()">Play</button>
-    <button id="btnLeaderboard" onclick="loadLeaderboardFrame()">Leaderboard</button>
-  </div>
+<h1>SOMNIA CHRISTMAS CARNIVAL 🎅</h1>
 
-  <div id="main">
-    <div id="title">☃️ SOMNIA CHRISTMAS CARNIVAL 🎄</div>
-    
-    <iframe id="gameFrame" src="pacman/pacman_natal.html"></iframe>
-    <iframe id="leaderboardFrame" src="leaderboard.html"></iframe>
-    
-    <div id="mobile-controls">
-        <div class="dpad-row">
-            <button id="up-btn" data-direction="UP">↑</button>
+<div id="main-container">
+    <div id="sidebar">
+        <div class="control-group">
+            <button id="connectWalletBtn">Connect Wallet</button>
+            <div class="label">Wallet: <span id="walletDisplay">Disconnected</span></div>
+            <div class="label">Balance: <span id="walletBalance">0.00</span> SOMI</div>
         </div>
-        <div class="dpad-row">
-            <button id="left-btn" data-direction="LEFT">←</button>
-            <button id="right-btn" data-direction="RIGHT">→</button>
+
+        <div class="control-group">
+            <button id="playBtn" onclick="payToPlay()">PLAY (Pay Fee)</button>
+            <button id="leaderboardBtn" onclick="loadLeaderboardFrame()">Leaderboard</button>
+            <div class="label">Fee: <span id="feeDisplay">...</span> SOMI</div>
+            <div class="label" id="gameMessage">Hubungkan Wallet untuk memulai.</div>
         </div>
-        <div class="dpad-row">
-            <button id="down-btn" data-direction="DOWN">↓</button>
+        
+        <div id="mobile-controls">
+            <div id="dpad-container-cross">
+                <button data-direction="up" class="dpad-btn up">⬆️</button>
+
+                <div class="row-center">
+                    <button data-direction="left" class="dpad-btn left">⬅️</button>
+                    <div class="center-filler"></div>
+                    <button data-direction="right" class="dpad-btn right">➡️</button>
+                </div>
+                
+                <button data-direction="down" class="dpad-btn down">⬇️</button>
+            </div>
         </div>
+        
     </div>
-    
-    <div class="footer">created by: @ifunkkalem | @Ifunkkalem91</div>
-  </div>
+
+    <div id="game-area">
+        <iframe id="gameFrame" class="game-iframe" src="pacman/pacman_natal.html" allow="autoplay; encrypted-media" style="display: none;"></iframe>
+        
+        <iframe id="leaderboardFrame" src="leaderboard.html"></iframe>
+    </div>
 </div>
 
-<script>
-for(let i=0;i<40;i++){
-  const s=document.createElement('div');
-  s.className='snow';
-  s.style.left = Math.random()*100+'vw';
-  s.style.animationDuration = (Math.random()*6+4)+'s';
-  s.style.opacity = Math.random();
-  document.body.appendChild(s);
-}
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<script src="contract.js"></script>
 <script src="app.js"></script>
 </body>
-  </html>
-  
+</html>
