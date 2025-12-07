@@ -8,14 +8,20 @@
 <script src="https://cdn.ethers.io/lib/ethers-5.umd.min.js"></script>
 
 <style>
-/* --- TATA LETAK UTAMA (REVISI) --- */
+/* --- TATA LETAK UTAMA --- */
 html, body {
-    height: 100%; margin: 0; background: #000;
+    height: 100%; margin: 0; 
+    /* WARNA LATAR BELAKANG DENGAN GRADIENT NATAL */
+    background: radial-gradient(circle at top, #8b0000 0%, #440000 70%, #000000 100%);
     font-family: Arial, sans-serif; color: #fff;
     display: flex; flex-direction: column; align-items: center;
     overflow-x: hidden;
+    position: relative; 
 }
-h1 { color: #ff0000; margin: 10px 0; text-shadow: 0 0 5px #ffcccc; }
+h1 { 
+    color: #ff0000; margin: 10px 0; 
+    text-shadow: 0 0 8px #ffcccc, 0 0 15px #ffffff; 
+}
 .label { font-size: 12px; color: #aaa; margin-top: 5px; }
 #gameMessage { color: #facc15; font-weight: bold; padding: 5px; background: rgba(0,0,0,0.5); border-radius: 4px; display: block; margin-bottom: 10px;}
 
@@ -29,13 +35,18 @@ h1 { color: #ff0000; margin: 10px 0; text-shadow: 0 0 5px #ffcccc; }
 
 /* --- SIDEBAR KIRI (KONTROL) --- */
 #sidebar {
-    width: 250px; /* Lebar Sidebar di PC/Tablet */
+    width: 250px; 
     padding: 10px; flex-shrink: 0;
-    background: #440000; border-radius: 8px;
-    box-shadow: 0 0 10px #ff0000;
+    background: rgba(68, 0, 0, 0.9); /* Sedikit Transparan */
+    border-radius: 8px;
+    box-shadow: 0 0 15px #00ff00, inset 0 0 8px #ff0000; /* Shadow Merah & Hijau */
     display: flex; flex-direction: column;
 }
-.control-group { margin-bottom: 15px; padding: 10px; border: 1px dashed #ffcccc; border-radius: 6px; }
+.control-group { 
+    margin-bottom: 15px; padding: 10px; 
+    border: 1px dashed #00ff00; /* Border Hijau */
+    border-radius: 6px; 
+}
 button {
     width: 100%; padding: 12px; margin-bottom: 8px;
     font-size: 16px; border: none; border-radius: 8px;
@@ -55,13 +66,14 @@ button {
     width: 100%; 
     height: 100%; 
     border: none;
-    background: #000; 
+    background: rgba(0, 0, 0, 0.7); /* Latar belakang semi transparan */
     min-height: 450px; 
     border-radius: 8px;
+    box-shadow: 0 0 15px #00ff00;
 }
 #leaderboardFrame { display: none; }
 
-/* --- D-PAD VIRTUAL (KONTROL MOBILE - Salib Style) --- */
+/* --- D-PAD VIRTUAL (SALIB STYLE) --- */
 #mobile-controls {
     display: flex; justify-content: center; margin-top: 15px;
     margin-bottom: 20px;
@@ -73,14 +85,9 @@ button {
     width: 180px; 
 }
 .dpad-btn {
-    width: 55px; 
-    height: 55px; 
-    padding: 0;
-    margin: 3px 0;
-    font-size: 24px;
-    border-radius: 10px; 
-    background: #ef4444; 
-    color: white;
+    width: 55px; height: 55px; padding: 0; margin: 3px 0;
+    font-size: 24px; border-radius: 10px; 
+    background: #ef4444; color: white;
     border: 3px solid #ffcccc;
     box-shadow: 0 4px #8b0000;
     transition: background-color 0.1s, box-shadow 0.1s;
@@ -91,9 +98,7 @@ button {
     justify-content: space-between;
 }
 .center-filler {
-    width: 55px; 
-    height: 55px;
-    margin: 3px 0;
+    width: 55px; height: 55px; margin: 3px 0;
     visibility: hidden; 
 }
 .dpad-btn:active {
@@ -102,7 +107,22 @@ button {
     transform: translateY(4px);
 }
 
-/* --- RESPONSIVITAS MOBILE (MAX-WIDTH 768px) --- */
+/* --- EFEK SALJU --- */
+.snow {
+  position: absolute;
+  top: -10px;
+  color: white;
+  font-size: 14px;
+  opacity: 0.8;
+  animation: fall linear forwards;
+  pointer-events: none; 
+  z-index: 10;
+}
+@keyframes fall {
+  to { transform: translateY(105vh); }
+}
+
+/* --- RESPONSIVITAS MOBILE --- */
 @media (max-width: 768px) {
     #main-container { 
         flex-direction: column; 
@@ -167,5 +187,25 @@ button {
 </div>
 
 <script src="app.js"></script>
+
+<script>
+    // JS untuk membuat efek salju secara berkala
+    setInterval(()=>{
+      // Hanya buat salju jika layar tidak terlalu kecil 
+      if(window.innerWidth > 500) { 
+          const s = document.createElement('div');
+          s.className = 'snow';
+          s.innerText = '❅'; 
+          s.style.left = (Math.random() * 100) + 'vw';
+          s.style.fontSize = (10 + Math.random() * 10) + 'px';
+          s.style.animationDuration = (5 + Math.random() * 8) + 's';
+          s.style.animationDelay = (Math.random() * -5) + 's';
+          document.body.appendChild(s);
+          
+          setTimeout(() => s.remove(), 15000);
+      }
+    }, 200); 
+</script>
+
 </body>
 </html>
