@@ -376,12 +376,52 @@ function startCountdownThenStart(){
 
 function startGameLoop(){
   // start bgm
-  try{ bgm.volume = 0.35; bgm.play(); }catch(e){}
+  try{ bgm.volume = 0.5; bgm.play(); }catch(e){}
   gameRunning = true;
   lastTick = performance.now();
   animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+  function startCountdownAndPlay() {
+  const gm = document.getElementById('game-message');
+  let count = 3;
+
+  gm.style.display = 'block';
+  gm.textContent = count;
+
+  const timer = setInterval(() => {
+    count--;
+
+    if (count > 0) {
+      gm.textContent = count;
+    } 
+    else {
+      clearInterval(timer);
+      gm.style.display = 'none';
+
+      // ✅ INI KUNCI UTAMA YANG TADI HILANG
+      gameRunning = true;
+      lastTime = performance.now();
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+  }, 1000);
+ }
+
+   function resetGame() {
+  resetMapData();
+
+  score = 0;
+  document.getElementById('current-score-display').textContent = score;
+
+  const gm = document.getElementById('game-message');
+  gm.style.display = 'none';
+
+  // ✅ PAKSA GAME OFF
+  gameRunning = false;
+  cancelAnimationFrame(animationFrameId);
+
+  drawOnce();
+}
 /* -------------------------
    Parent communication (pay + fee)
    ------------------------- */
@@ -389,7 +429,15 @@ window.addEventListener('message', (ev)=>{
   const d = ev.data || {};
 
   if (d.type === 'paySuccess') {
-    startCountdownAndPlay();
+  // ✅ PAKSA STOP GAME SEBELUM MULAI BARU
+  gameRunning = false;
+  cancelAnimationFrame(animationFrameId);
+
+  // ✅ RESET TOTAL POSISI & SCORE
+  resetGame();
+
+  // ✅ BARU HITUNG MUNDUR
+  startCountdownAndPlay();
   }
 
   if (d.type === 'startFee') {
