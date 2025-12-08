@@ -1,109 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pacman Natal</title>
-
+<meta charset="UTF-8">
+<title>Pacman Natal Final</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html,body{
-  height:100%;
-  margin:0;
-  background:#000;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-family:Trebuchet MS;
-  flex-direction:column;
-}
-
-#ui{position:fixed;top:10px;left:10px;color:#fff;z-index:9}
-#gameMessage{position:fixed;top:8px;right:8px;color:#fff;z-index:9}
-
-#gameWrapper{
-  width:100%;
-  max-width:960px;
-  display:flex;
-  justify-content:center;
-}
-
-canvas{
-  background:#071024;
-  border-radius:6px;
-  width:100%;
-  height:auto;
-}
-
-/* === D-PAD === */
+body{margin:0;background:#000;color:white;text-align:center;font-family:Arial}
+#ui{position:fixed;top:10px;left:10px;z-index:10}
+canvas{background:#000;display:block;margin:auto}
 #mobileControls{
-  position:fixed;
-  bottom:12px;
-  left:50%;
+  position:fixed;bottom:15px;left:50%;
   transform:translateX(-50%);
-  display:flex;
-  flex-direction: column;
-  align-items:center;
-  z-index:9;
-  width:200px;
+  display:flex;gap:12px;z-index:20
 }
-
-#mobileControls button{
-  width:60px;
-  height:60px;
-  margin:4px;
-  font-size:24px;
-  border-radius:8px;
-  border:none;
-  background:linear-gradient(90deg,#cc0000,#16a34a);
-  color:#fff;
-  box-shadow:0 4px #8b0000;
+.ctl-btn{
+  width:60px;height:60px;border-radius:50%;
+  border:none;background:#22c55e;color:#000;font-size:22px
 }
-
-#mobileControls button:active{
-  box-shadow:0 0px #8b0000;
-  transform:translateY(4px);
-}
-
-.dpad-row{display:flex;justify-content:space-between;width:100%}
-.center-filler{width:60px;height:60px}
-
-/* === DESKTOP MODE === */
-@media (min-width:900px){
-  #mobileControls{
-    right:16px;
-    left:auto;
-    transform:none;
-    bottom:60px;
-    width:140px;
-  }
-  #mobileControls button{
-    width:40px;
-    height:40px;
-    font-size:16px;
-  }
+#game-message{
+  position:fixed;inset:0;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.85);
+  font-size:80px;color:gold;z-index:99
 }
 </style>
 </head>
-
 <body>
 
-<div id="ui">
-  <div id="current-score-display">0</div>
-  <div id="game-message" style="display:none;color:#fff;background:rgba(0,0,0,0.6);padding:6px;border-radius:6px;margin-top:6px"></div>
-</div>
-
-<div id="gameWrapper">
-  <canvas id="pacman-canvas"></canvas>
-</div>
+<div id="ui">Score: <span id="current-score-display">0</span></div>
+<div id="game-message"></div>
+<canvas id="pacman-canvas"></canvas>
 
 <div id="mobileControls">
-  <button data-dir="up">↑</button>
-  <div class="dpad-row">
-    <button data-dir="left">←</button>
-    <div class="center-filler"></div>
-    <button data-dir="right">→</button>
-  </div>
-  <button data-dir="down">↓</button>
+  <button class="ctl-btn" data-dir="up">↑</button>
+  <button class="ctl-btn" data-dir="left">←</button>
+  <button class="ctl-btn" data-dir="down">↓</button>
+  <button class="ctl-btn" data-dir="right">→</button>
 </div>
 
 <script>
@@ -111,7 +43,8 @@ canvas{
 
 const canvas = document.getElementById('pacman-canvas');
 const ctx = canvas.getContext('2d');
-const TILE_SIZE = 20;
+
+let TILE_SIZE = 20;
 
 const GAME_MAP = [
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -137,106 +70,154 @@ const GAME_MAP = [
 const MAP_WIDTH = GAME_MAP[0].length;
 const MAP_HEIGHT = GAME_MAP.length;
 
-canvas.width = MAP_WIDTH * TILE_SIZE;
-canvas.height = MAP_HEIGHT * TILE_SIZE;
+let pacman, ghosts, score, mapData;
+let gameRunning=true, animationFrameId=null;
+let lastTime = 0;
+const GAME_UPDATE_INTERVAL = 180;
 
-/* === RESPONSIVE SCALE (VISUAL ONLY) === */
-function resizeCanvasToFit(){
-  const wrapper = document.getElementById('gameWrapper');
-  let availW = Math.min(window.innerWidth, 960);
-  let availH = window.innerHeight - 160;
-  const aspect = canvas.width / canvas.height;
-
-  let targetW = availW;
-  let targetH = targetW / aspect;
-
-  if(targetH > availH){
-    targetH = availH;
-    targetW = targetH * aspect;
-  }
-
-  canvas.style.width = Math.floor(targetW) + "px";
-  canvas.style.height = Math.floor(targetH) + "px";
-
-  drawOnce();
+function resizeCanvas(){
+  const scale = Math.min(window.innerWidth/(MAP_WIDTH*TILE_SIZE), window.innerHeight/(MAP_HEIGHT*TILE_SIZE));
+  canvas.style.transform = `scale(${scale})`;
+  canvas.style.transformOrigin = "top center";
 }
-
-window.addEventListener('resize', resizeCanvasToFit);
-window.addEventListener('orientationchange', resizeCanvasToFit);
-
-/* === GAME LOGIC ORIGINAL (TIDAK DIUBAH) === */
-let pacman, ghosts, score, gameRunning=false, mapData=[];
-let lastTime=0, gameUpdateTimer=0, animationFrameId=null;
-const GAME_UPDATE_INTERVAL = 220;
+window.addEventListener("resize", resizeCanvas);
 
 function resetMapData(){
   mapData = GAME_MAP.map(r=>[...r]);
-  score=0;
-  pacman={x:1,y:1,dir:'right',nextDir:'right',radius:TILE_SIZE/2.5};
-  ghosts=[
-    {x:9,y:9,color:'#cc0000',dir:'up',speed:1},
-    {x:10,y:9,color:'#16a34a',dir:'down',speed:1},
-    {x:8,y:9,color:'#2563eb',dir:'left',speed:1}
+  pacman = { x:1, y:1, dir:'right', nextDir:'right' };
+  ghosts = [
+    { x:9,y:9,color:'#cc0000' },
+    { x:10,y:9,color:'#16a34a' },
+    { x:8,y:9,color:'#2563eb' }
   ];
 }
 
 function resetGame(){
   resetMapData();
-  document.getElementById('current-score-display').textContent=score;
-  document.getElementById('game-message').style.display='none';
-  gameRunning=false;
-  drawOnce();
+  score=0;
+  document.getElementById("current-score-display").textContent = score;
 }
-
-/* === DRAW FUNCTIONS (TETAP) === */
-function drawOnce(){ctx.clearRect(0,0,canvas.width,canvas.height);drawMap();drawPacman();drawGhosts();}
 
 function drawMap(){
-for(let y=0;y<MAP_HEIGHT;y++){
-for(let x=0;x<MAP_WIDTH;x++){
-const t=mapData[y][x];
-if(t===1){
-ctx.fillStyle='#cc0000'; ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
-ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.strokeRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
-}else{
-ctx.fillStyle='#1a2c42'; ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
-if(t===2){ctx.fillStyle='#facc15';ctx.beginPath();ctx.arc(x*TILE_SIZE+TILE_SIZE/2,y*TILE_SIZE+TILE_SIZE/2,TILE_SIZE/8,0,Math.PI*2);ctx.fill();}
+  for(let y=0;y<MAP_HEIGHT;y++){
+    for(let x=0;x<MAP_WIDTH;x++){
+      const t=mapData[y][x];
+      if(t===1){
+        ctx.fillStyle='#cc0000';
+        ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
+      }else{
+        ctx.fillStyle='#1a2c42';
+        ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
+        if(t===2){
+          ctx.fillStyle='#facc15';
+          ctx.beginPath();
+          ctx.arc(x*TILE_SIZE+10,y*TILE_SIZE+10,3,0,Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+  }
 }
-}}}
 
 function drawPacman(){
-const x=pacman.x*TILE_SIZE+TILE_SIZE/2;
-const y=pacman.y*TILE_SIZE+TILE_SIZE/2;
-ctx.fillStyle='#facc15';
-ctx.beginPath();
-const m=Math.abs(Math.sin(Date.now()/100));
-const o={right:0,left:Math.PI,up:-Math.PI/2,down:Math.PI/2}[pacman.dir];
-ctx.arc(x,y,pacman.radius,o+m*0.4,o-m*0.4+2*Math.PI,false);
-ctx.lineTo(x,y);ctx.fill();
+  ctx.fillStyle="#facc15";
+  ctx.beginPath();
+  ctx.arc(pacman.x*TILE_SIZE+10,pacman.y*TILE_SIZE+10,7,0,Math.PI*2);
+  ctx.fill();
 }
 
 function drawGhosts(){
-ghosts.forEach(g=>{
-const x=g.x*TILE_SIZE+TILE_SIZE/2;
-const y=g.y*TILE_SIZE+TILE_SIZE/2;
-ctx.fillStyle=g.color;
-ctx.beginPath();ctx.arc(x,y,TILE_SIZE/2,Math.PI,0,false);
-ctx.rect(x-TILE_SIZE/2,y,TILE_SIZE,TILE_SIZE/2);
-ctx.fill();
-});
+  ghosts.forEach(g=>{
+    ctx.fillStyle=g.color;
+    ctx.beginPath();
+    ctx.arc(g.x*TILE_SIZE+10,g.y*TILE_SIZE+10,9,0,Math.PI*2);
+    ctx.fill();
+  });
 }
 
-/* === MOBILE INPUT NO DELAY === */
-document.querySelectorAll("#mobileControls button").forEach(btn=>{
-btn.addEventListener("touchstart", e=>{
-e.preventDefault();
-pacman.nextDir=btn.dataset.dir;
-},{passive:false});
-btn.addEventListener("mousedown",()=> pacman.nextDir=btn.dataset.dir);
+function canMove(x,y){
+  return mapData[y] && mapData[y][x]!==1;
+}
+
+function movePacman(){
+  const d=pacman.nextDir;
+  const dx={left:-1,right:1,up:0,down:0}[d];
+  const dy={up:-1,down:1,left:0,right:0}[d];
+
+  if(canMove(pacman.x+dx,pacman.y+dy))
+    pacman.dir=d;
+
+  const mx={left:-1,right:1,up:0,down:0}[pacman.dir];
+  const my={up:-1,down:1,left:0,right:0}[pacman.dir];
+
+  if(canMove(pacman.x+mx,pacman.y+my)){
+    pacman.x+=mx;
+    pacman.y+=my;
+  }
+
+  if(mapData[pacman.y][pacman.x]===2){
+    mapData[pacman.y][pacman.x]=0;
+    score+=10;
+    document.getElementById("current-score-display").textContent=score;
+  }
+}
+
+function moveGhosts(){
+  ghosts.forEach(g=>{
+    const d=['up','down','left','right'][Math.floor(Math.random()*4)];
+    const dx={left:-1,right:1,up:0,down:0}[d];
+    const dy={up:-1,down:1,left:0,right:0}[d];
+    if(canMove(g.x+dx,g.y+dy)){
+      g.x+=dx;
+      g.y+=dy;
+    }
+    if(g.x===pacman.x && g.y===pacman.y) endGame();
+  });
+}
+
+function gameLoop(time){
+  if(time-lastTime>GAME_UPDATE_INTERVAL){
+    movePacman();
+    moveGhosts();
+    lastTime=time;
+  }
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawMap();
+  drawPacman();
+  drawGhosts();
+
+  animationFrameId=requestAnimationFrame(gameLoop);
+}
+
+function endGame(){
+  gameRunning=false;
+  window.parent.postMessage({type:"submitScore",score:score},"*");
+}
+
+document.querySelectorAll(".ctl-btn").forEach(b=>{
+  b.onclick=()=>pacman.nextDir=b.dataset.dir;
 });
 
+window.onkeydown=e=>{
+  if(e.key==="ArrowUp") pacman.nextDir="up";
+  if(e.key==="ArrowDown") pacman.nextDir="down";
+  if(e.key==="ArrowLeft") pacman.nextDir="left";
+  if(e.key==="ArrowRight") pacman.nextDir="right";
+};
+
+window.addEventListener("message",(e)=>{
+  if(e.data.type==="paySuccess"){
+    resetGame();
+    gameRunning=true;
+  }
+});
+
+canvas.width=MAP_WIDTH*TILE_SIZE;
+canvas.height=MAP_HEIGHT*TILE_SIZE;
+resizeCanvas();
 resetGame();
-resizeCanvasToFit();
+requestAnimationFrame(gameLoop);
 
 })();
 </script>
