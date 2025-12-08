@@ -207,11 +207,20 @@ function loop(ts){
 }
 
 /* ✅ INPUT */
-document.querySelectorAll("#mobileControls button").forEach(b=>{
-  b.onclick=()=>{
+document.querySelectorAll('#mobileControls button').forEach(b=>{
+  b.onclick = ()=>{
+    // ✅ UNLOCK AUDIO LANGSUNG DARI EVENT USER
     unlockAudio();
-    pacman.nextDir=b.dataset.dir;
-    if(!gameRunning) startGame();
+    bgm.play().catch(()=>{});
+    sfxStart.play().catch(()=>{});
+
+    // ✅ JALANKAN GAME JIKA BELUM AKTIF
+    if(!gameRunning){
+      startGame();
+    }
+
+    pacman.nextDir = b.dataset.dir;
+    hasInput = true;
   };
 });
 
