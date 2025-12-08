@@ -1,73 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pacman Natal</title>
-
+<meta charset="UTF-8">
+<title>Pacman XMAS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html,body{height:100%;margin:0;background:#000;display:flex;align-items:center;justify-content:center;font-family:Trebuchet MS}
-#ui{position:fixed;top:10px;left:10px;color:#fff;z-index:9}
-#game-message{position:fixed;top:8px;right:8px;color:#fff;z-index:9}
-canvas{background:#071024;border-radius:6px}
-
-/* D-PAD */
-#mobileControls{
-position:fixed;
-bottom:12px;
-left:50%;
-transform:translateX(-50%);
-display:flex;
-flex-direction: column;
-align-items: center;
-z-index:9;
-}
-#mobileControls button{
-width:60px;height:60px;
-margin:4px;
-font-size:24px;
-border-radius:8px;
-border:none;
-background: linear-gradient(90deg, #cc0000, #16a34a);
-color:#fff;
-}
-.dpad-row{display:flex;width:100%;justify-content:space-between}
-.center-filler{width:60px;height:60px}
+  html,body{margin:0;background:#000;display:flex;justify-content:center;align-items:center;height:100%}
+  canvas{background:#071024;border-radius:10px;display:block}
+  #ui{position:fixed;top:10px;left:10px;color:#fff;font-family:Arial;z-index:12}
+  #game-message{position:fixed;top:10px;right:10px;color:white;background:rgba(0,0,0,.6);padding:6px 10px;border-radius:8px;display:none;z-index:12}
+  /* Mobile D-PAD */
+  #mobileControls{
+    position:fixed;
+    bottom:12px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    z-index:12;
+    user-select:none;
+  }
+  #mobileControls button{
+    width:64px;height:64px;border-radius:10px;border:0;background:linear-gradient(90deg,#cc0000,#16a34a);color:#fff;font-size:22px;
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 4px rgba(0,0,0,0.4);
+  }
+  .dpad-row{display:flex;align-items:center;gap:6px}
+  .center-filler{width:64px;height:64px}
+  @media(min-width:900px){
+    /* hide big D-PAD on desktop to avoid obscuring canvas */
+    #mobileControls{display:none}
+  }
 </style>
 </head>
 
 <body>
+  <div id="ui">Score: <span id="current-score-display">0</span></div>
+  <div id="game-message"></div>
+  <canvas id="pacman-canvas"></canvas>
 
-<div id="ui">
-  <div id="current-score-display">0</div>
-  <div id="game-message" style="display:none;background:rgba(0,0,0,.7);padding:6px;border-radius:6px;margin-top:6px"></div>
-</div>
-
-<canvas id="pacman-canvas"></canvas>
-
-<div id="mobileControls">
-  <button data-dir="up">↑</button>
-  <div class="dpad-row">
-    <button data-dir="left">←</button>
-    <div class="center-filler"></div>
-    <button data-dir="right">→</button>
+  <!-- D-PAD (local to iframe) -->
+  <div id="mobileControls" aria-hidden="false">
+    <button data-dir="up" id="btn-up">↑</button>
+    <div class="dpad-row">
+      <button data-dir="left" id="btn-left">←</button>
+      <div class="center-filler" aria-hidden="true"></div>
+      <button data-dir="right" id="btn-right">→</button>
+    </div>
+    <button data-dir="down" id="btn-down">↓</button>
   </div>
-  <button data-dir="down">↓</button>
-</div>
-
-<!-- ✅ AUDIO (PATH SUDAH BENAR) -->
-<audio id="bgm" src="assets/music_background.mp3" loop></audio>
-<audio id="sfxEat" src="assets/sfx_dot_eat.mp3"></audio>
-<audio id="sfxStart" src="assets/sfx_start.mp3"></audio>
 
 <script>
-(function(){
-
+(() => {
 const canvas = document.getElementById("pacman-canvas");
 const ctx = canvas.getContext("2d");
-const TILE_SIZE = 20;
+const TILE = 20;
 
-/* ✅ MAP TIDAK DIUBAH */
+/* ================== LABIRIN ASLI ================== */
 const GAME_MAP = [
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
@@ -89,54 +80,49 @@ const GAME_MAP = [
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
-canvas.width = GAME_MAP[0].length * TILE_SIZE;
-canvas.height = GAME_MAP.length * TILE_SIZE;
+const MAP_W = GAME_MAP[0].length;
+const MAP_H = GAME_MAP.length;
+canvas.width = MAP_W * TILE;
+canvas.height = MAP_H * TILE;
 
-/* ✅ AUDIO FIX TOTAL */
-const bgm = document.getElementById("bgm");
-const sfxEat = document.getElementById("sfxEat");
-const sfxStart = document.getElementById("sfxStart");
-let audioUnlocked = false;
-
-function unlockAudio(){
-  if(audioUnlocked) return;
-  audioUnlocked = true;
-  bgm.play().catch(()=>{});
-}
-window.addEventListener("pointerdown", unlockAudio);
-
-/* ✅ STATE */
-let mapData, pacman, ghosts, score;
+/* ========== STATE ========== */
+let mapData, pacman, ghosts, score = 0;
+let lastMove = 0;
 let gameRunning = false;
 let ghostActive = false;
-let lastMove = 0;
 const MOVE_INTERVAL = 240;
 
-/* ✅ RESET */
+/* ========== INIT ========== */
 function resetGame(){
   mapData = GAME_MAP.map(r=>[...r]);
-  pacman = {x:1,y:1,dir:"right",nextDir:"right",radius:7};
-  ghosts = [{x:9,y:9},{x:10,y:9},{x:8,y:9}];
+  pacman = {x:1,y:1,dir:"right",next:"right"};
+  ghosts = [
+    {x:9,y:9,color:"#ff0033"},
+    {x:10,y:9,color:"#00ff99"},
+    {x:8,y:9,color:"#3399ff"}
+  ];
   score = 0;
   document.getElementById("current-score-display").textContent = score;
-  document.getElementById("game-message").style.display="none";
-  gameRunning=false;
+  document.getElementById("game-message").style.display = "none";
+  gameRunning = false;
+  ghostActive = false;
 }
 
-/* ✅ DRAW */
+/* ========== DRAW ========== */
 function drawMap(){
-  for(let y=0;y<mapData.length;y++){
-    for(let x=0;x<mapData[y].length;x++){
-      if(mapData[y][x]==1){
+  for(let y=0;y<MAP_H;y++){
+    for(let x=0;x<MAP_W;x++){
+      const t = mapData[y][x];
+      if(t===1){
         ctx.fillStyle="#cc0000";
-        ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
-      }else{
-        ctx.fillStyle="#1a2c42";
-        ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
-        if(mapData[y][x]==2){
-          ctx.fillStyle="#facc15";
+        ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+      } else {
+        ctx.fillStyle="#020617";
+        ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+        if(t===2){
+          ctx.fillStyle="#fde047";
           ctx.beginPath();
-          ctx.arc(x*TILE_SIZE+10,y*TILE_SIZE+10,3,0,Math.PI*2);
+          ctx.arc(x*TILE+TILE/2,y*TILE+TILE/2,3,0,Math.PI*2);
           ctx.fill();
         }
       }
@@ -145,60 +131,132 @@ function drawMap(){
 }
 
 function drawPacman(){
+  const x = pacman.x*TILE + TILE/2;
+  const y = pacman.y*TILE + TILE/2;
+  const mouth = Math.abs(Math.sin(Date.now()/120))*0.5;
+  const angle = {right:0,left:Math.PI,up:-Math.PI/2,down:Math.PI/2}[pacman.dir];
   ctx.fillStyle="#facc15";
   ctx.beginPath();
-  ctx.arc(pacman.x*TILE_SIZE+10,pacman.y*TILE_SIZE+10,7,0,Math.PI*2);
+  ctx.moveTo(x,y);
+  ctx.arc(x,y,TILE/2-2,angle+mouth*0.6,angle-mouth*0.6+Math.PI*2);
+  ctx.fill();
+  // simple santa hat rim
+  ctx.fillStyle="#cc0000";
+  ctx.beginPath();
+  ctx.moveTo(x - TILE*0.18, y - TILE*0.45);
+  ctx.lineTo(x + TILE*0.18, y - TILE*0.45);
+  ctx.lineTo(x, y - TILE*0.8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(x, y - TILE*0.8, 3, 0, Math.PI*2);
   ctx.fill();
 }
 
 function drawGhosts(){
-  ctx.fillStyle="#16a34a";
   ghosts.forEach(g=>{
+    const x = g.x*TILE + TILE/2;
+    const y = g.y*TILE + TILE/2;
+    // glow
+    ctx.save();
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = g.color;
+    ctx.fillStyle = g.color;
     ctx.beginPath();
-    ctx.arc(g.x*TILE_SIZE+10,g.y*TILE_SIZE+10,7,0,Math.PI*2);
+    ctx.arc(x,y,TILE/2,Math.PI,0);
+    ctx.rect(x-TILE/2,y,TILE,TILE/2);
+    ctx.fill();
+    ctx.restore();
+    // eyes
+    ctx.fillStyle="white";
+    ctx.beginPath();
+    ctx.arc(x - TILE*0.18, y - TILE*0.18, TILE*0.08, 0, Math.PI*2);
+    ctx.arc(x + TILE*0.18, y - TILE*0.18, TILE*0.08, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle="black";
+    ctx.beginPath();
+    ctx.arc(x - TILE*0.16, y - TILE*0.18, TILE*0.04, 0, Math.PI*2);
+    ctx.arc(x + TILE*0.16, y - TILE*0.18, TILE*0.04, 0, Math.PI*2);
     ctx.fill();
   });
 }
 
-/* ✅ MOVEMENT */
-function canMove(x,y){
-  return mapData[y] && mapData[y][x] !== 1;
-}
+/* ========== MOVEMENT ========== */
+function canMove(x,y){ return mapData[y] && mapData[y][x] !== 1; }
 
 function movePacman(){
-  const d = pacman.nextDir;
+  const d = pacman.next;
   const nx = pacman.x + (d==="right"?1:d==="left"?-1:0);
   const ny = pacman.y + (d==="down"?1:d==="up"?-1:0);
-  if(canMove(nx,ny)){ pacman.x=nx; pacman.y=ny; }
+  if(canMove(nx,ny)){
+    pacman.x = nx;
+    pacman.y = ny;
+    pacman.dir = d;
+  }
 }
 
 function moveGhosts(){
   if(!ghostActive) return;
   ghosts.forEach(g=>{
-    const d=[[1,0],[-1,0],[0,1],[0,-1]][Math.floor(Math.random()*4)];
-    if(canMove(g.x+d[0],g.y+d[1])){ g.x+=d[0]; g.y+=d[1]; }
+    const d = [[1,0],[-1,0],[0,1],[0,-1]][Math.floor(Math.random()*4)];
+    const nx = g.x + d[0];
+    const ny = g.y + d[1];
+    if(canMove(nx,ny)){ g.x = nx; g.y = ny; }
   });
 }
 
-/* ✅ COLLISION & AUDIO */
+/* ========== COLLISIONS ========== */
 function checkCollision(){
-  if(mapData[pacman.y][pacman.x]==2){
-    mapData[pacman.y][pacman.x]=0;
-    score+=10;
-    sfxEat.currentTime=0;
-    sfxEat.play();
-    document.getElementById("current-score-display").textContent=score;
+  if(mapData[pacman.y][pacman.x] === 2){
+    mapData[pacman.y][pacman.x] = 0;
+    score += 10;
+    document.getElementById("current-score-display").textContent = score;
+    // inform parent so app.js can play dot sound
+    parent.postMessage({ type: "dotEaten" }, "*");
+  }
+
+  for(const g of ghosts){
+    if(g.x === pacman.x && g.y === pacman.y){
+      gameOver();
+      return;
+    }
+  }
+
+  // win?
+  let win = true;
+  for(let y=0;y<mapData.length;y++){
+    for(let x=0;x<mapData[y].length;x++){
+      if(mapData[y][x] === 2) { win = false; break; }
+    }
+    if(!win) break;
+  }
+  if(win){
+    gameRunning = false;
+    const gm = document.getElementById("game-message");
+    gm.textContent = "YOU WIN!";
+    gm.style.display = "block";
+    parent.postMessage({ type: "submitScore", score }, "*");
   }
 }
 
-/* ✅ GAME LOOP FIX TOTAL */
+function gameOver(){
+  gameRunning = false;
+  const gm = document.getElementById("game-message");
+  gm.textContent = "GAME OVER";
+  gm.style.display = "block";
+  parent.postMessage({ type: "submitScore", score }, "*");
+}
+
+/* ========== LOOP ========== */
 function loop(ts){
-  if(gameRunning && ts-lastMove>MOVE_INTERVAL){
+  if(gameRunning && ts - lastMove > MOVE_INTERVAL){
     movePacman();
     moveGhosts();
     checkCollision();
-    lastMove=ts;
+    lastMove = ts;
   }
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawMap();
   drawPacman();
@@ -206,38 +264,67 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-/* ✅ INPUT */
-document.querySelectorAll('#mobileControls button').forEach(b=>{
-  b.onclick = ()=>{
-    // ✅ UNLOCK AUDIO LANGSUNG DARI EVENT USER
-    unlockAudio();
-    bgm.play().catch(()=>{});
-    sfxStart.play().catch(()=>{});
-
-    // ✅ JALANKAN GAME JIKA BELUM AKTIF
-    if(!gameRunning){
-      startGame();
+/* ========== MESSAGE HANDLER (from parent) ========== */
+window.addEventListener("message", (e) => {
+  const d = e.data || {};
+  if(d.type === "paySuccess"){
+    resetGame();
+    ghostActive = true;
+    gameRunning = true;
+  }
+  if(d.type === "mobileInput"){
+    // parent D-PAD control (from main page)
+    const dir = (d.direction || "").toLowerCase();
+    if(["up","down","left","right"].includes(dir)){
+      pacman.next = dir;
+    } else if(dir === "stop"){
+      // ignore for now
     }
-
-    pacman.nextDir = b.dataset.dir;
-    hasInput = true;
-  };
+  }
 });
 
-/* ✅ START */
-function startGame(){
-  if(gameRunning) return;
-  sfxStart.play();
-  bgm.play();
-  ghostActive=true;
-  gameRunning=true;
+/* ========== LOCAL D-PAD: set pacman.next & notify parent ========== */
+function sendMobileInput(direction){
+  // local update (for immediate responsiveness)
+  if(direction && typeof direction === "string"){
+    pacman.next = direction.toLowerCase();
+  }
+  // also notify parent app.js (so parent can react if needed)
+  try{ parent.postMessage({ type: "mobileInput", direction }, "*"); }catch(e){}
 }
 
+/* attach events for local D-PAD (touch & mouse) */
+document.querySelectorAll("#mobileControls button").forEach(btn=>{
+  const dir = btn.getAttribute("data-dir");
+  const start = (ev) => {
+    ev.preventDefault();
+    btn.style.transform = "translateY(2px)";
+    sendMobileInput(dir);
+  };
+  const end = (ev) => {
+    ev.preventDefault();
+    btn.style.transform = "";
+  };
+  btn.addEventListener("touchstart", start, {passive:false});
+  btn.addEventListener("mousedown", start);
+  btn.addEventListener("touchend", end);
+  btn.addEventListener("mouseup", end);
+});
+
+/* keyboard support inside iframe (optional) */
+window.addEventListener("keydown", (e)=>{
+  if(e.key.includes("Arrow")){
+    const dir = e.key.replace("Arrow","").toLowerCase();
+    pacman.next = dir;
+    try{ parent.postMessage({ type:"mobileInput", direction: dir }, "*"); }catch(e){}
+  }
+});
+
+/* ========== STARTUP ========== */
 resetGame();
 requestAnimationFrame(loop);
 
 })();
 </script>
-
 </body>
 </html>
