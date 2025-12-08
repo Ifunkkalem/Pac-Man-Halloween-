@@ -89,8 +89,8 @@
 <script>
 // ========== CONFIG (Web3) ==========
 const CONTRACT_ADDRESS = "0x35a7f3eE9A2b5fdEE717099F9253Ae90e1248AE3"; 
-// Somnia Testnet Public RPC URL untuk koneksi read-only yang stabil
-const FALLBACK_RPC_URL = "https://api.infra.mainnet.somnia.network/"; 
+// FIX 1: JSON-RPC Provider untuk koneksi read-only yang stabil di DApp Browser
+const FALLBACK_RPC_URL = "https://dream-rpc.somnia.network/"; 
 const CONTRACT_ABI = [{"inputs":[{"internalType":"address","name":"_treasury","type":"address"},{"internalType":"uint256","name":"_startFeeWei","type":"uint256"},{"internalType":"uint256","name":"_maxScorePerSubmit","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"fee","type":"uint256"}],"name":"GameStarted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"score","type":"uint256"}],"name":"ScoreSubmitted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Withdraw","type":"event"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPlayers","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getTop10","outputs":[{"internalType":"address[]","name":"topPlayers","type":"address[]"},{"internalType":"uint256[]","name":"scores","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"maxScorePerSubmit","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"players","outputs":[{"internalType":"uint256","name":"totalScore","type":"uint256"},{"internalType":"uint256","name":"lastPlayed","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"startFeeWei","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"startGame","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"uint256","name":"score","type":"uint256"}],"name":"submitScore","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"}];
 
 // ========== CORE LOGIC ==========
@@ -99,11 +99,9 @@ async function initializeWeb3() {
     let provider;
     
     try {
-        // UPGRADE: Langsung gunakan JSON-RPC Provider untuk koneksi read-only yang cepat
-        // Ini memastikan koneksi ke blockchain, meskipun user belum connect wallet
+        // Langsung gunakan JSON-RPC Provider untuk koneksi read-only yang cepat dan stabil
         provider = new ethers.providers.JsonRpcProvider(FALLBACK_RPC_URL);
         
-        // Cek koneksi dengan mendapatkan Chain ID
         const network = await provider.getNetwork();
         
         document.getElementById('connectionStatus').innerHTML = `✅ Terhubung ke Blockchain: Chain ID ${network.chainId}`;
@@ -130,11 +128,34 @@ async function fetchLeaderboard(contract) {
             return;
         }
 
+        // --- FIX 2: Logika Deduplikasi dan Pengurutan Ulang ---
+        const uniqueScores = new Map(); // Map untuk menyimpan skor tertinggi per alamat
+
+        topPlayers.forEach((player, scoreIndex) => {
+            // Gunakan toNumber() untuk memastikan perbandingan skor adalah angka
+            const currentScore = scores[scoreIndex].toNumber(); 
+
+            // Jika alamat belum ada ATAU skor saat ini lebih tinggi dari skor yang tersimpan
+            if (!uniqueScores.has(player) || currentScore > uniqueScores.get(player)) {
+                uniqueScores.set(player, currentScore);
+            }
+        });
+
+        // Konversi Map ke Array dan Sortir berdasarkan Skor (descending)
+        const finalLeaderboard = Array.from(uniqueScores, ([address, score]) => ({ address, score }));
+        
+        finalLeaderboard.sort((a, b) => b.score - a.score);
+
+        // Batasi hanya 10 rank teratas
+        const top10Ranked = finalLeaderboard.slice(0, 10);
+        // --- AKHIR FIX 2 ---
+        
         tbody.innerHTML = ''; // Clear loading message
 
-        topPlayers.forEach((player, index) => {
+        top10Ranked.forEach((item, index) => {
             const rank = index + 1;
-            const score = scores[index].toString();
+            const score = item.score.toString();
+            const player = item.address;
             const row = tbody.insertRow();
             
             // Format address
@@ -148,9 +169,9 @@ async function fetchLeaderboard(contract) {
         });
         
     } catch (e) {
-        console.error("Error fetching leaderboard data:", e);
+        console.error("Error fetching or processing leaderboard data:", e);
         document.getElementById('connectionStatus').innerHTML = '⚠️ Terhubung, tetapi gagal mengambil data skor.';
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Terjadi kesalahan saat mengambil data skor.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Terjadi kesalahan saat mengambil atau memproses data skor.</td></tr>';
     }
 }
 
