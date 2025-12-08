@@ -37,9 +37,13 @@ iframe{
     display:none;
 }
 
-/* PERBAIKAN CSS UNTUK TAMPILAN ESTETIK */
+
+
+
+/* --- Info Wallet dan Salju --- */
+#/* PERBAIKAN CSS UNTUK TAMPILAN BACKGROUND */
 #logoPlaceholder {
-    /* Wadah harus tetap 100% */
+    /* Wadah harus 100% */
     width: 100%; 
     height: 100%; 
     display: flex; 
@@ -47,22 +51,19 @@ iframe{
     align-items: center;
 }
 #logoPlaceholder img {
-    /* 1. PAKSA MENGISI 100% dari wadah */
-    max-width: 100%; /* Dulu 90% */
-    max-height: 100%; /* Dulu 90% */
-    width: 100%; /* Baru: Paksa lebar 100% */
-    height: auto; /* Baru: Pertahankan rasio */
+    width: 100%; 
+    height: 100%;
     
-    /* 2. Gunakan 'contain' agar gambar tidak terpotong */
-    object-fit: contain;
+    /* 1. PAKSA gambar menutupi seluruh wadah */
+    object-fit: cover; /* <- Perintah Kunci: Ini mengisi seluruh ruang */
+    
+    /* 2. Posisikan gambar di tengah (opsional) */
+    object-position: center; 
     
     /* Tambahkan efek visual estetik */
     border-radius: 8px; 
 }
-
-
-/* --- Info Wallet dan Salju --- */
-#walletAddr{word-break:break-all;font-size:12px;color:#000}
+walletAddr{word-break:break-all;font-size:12px;color:#000}
 #walletBal{font-size:12px;color:#000}
 .snow{position:absolute;top:-20px;width:8px;height:8px;border-radius:50%;background:#fff;opacity:.85;animation:snowFall linear infinite}
 @keyframes snowFall{from{transform:translateY(0)}to{transform:translateY(120vh)}}
