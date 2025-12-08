@@ -299,7 +299,7 @@ canvas{background:#071024;border-radius:6px}
   }
 
   let lastTime = 0;
-  const GAME_UPDATE_INTERVAL = 150;
+  const GAME_UPDATE_INTERVAL = 220;
   let gameUpdateTimer = 0;
   let animationFrameId = null;
 
@@ -356,11 +356,12 @@ canvas{background:#071024;border-radius:6px}
   });
 
   // mobile controls
-  document.querySelectorAll('#mobileControls button').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const dir = b.getAttribute('data-dir');
-      pacman.nextDir = dir;
-    });
+  document.querySelectorAll("#mobileControls button").forEach(b=>{
+  const setDir = ()=> pacman.nextDir = b.dataset.dir;
+
+  b.addEventListener("touchstart", setDir);
+  b.addEventListener("mousedown", setDir);
+   });
   });
 
   // receive messages from parent
