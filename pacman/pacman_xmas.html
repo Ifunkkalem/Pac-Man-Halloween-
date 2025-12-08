@@ -351,6 +351,14 @@ function endGame(){
   // keep original postMessage if embedding needs it
   try{ window.parent.postMessage({ type: "submitScore", score: score }, "*"); }catch(e){}
 }
+ function checkWin(){
+  for(let y=0;y<MAP_HEIGHT;y++){
+    for(let x=0;x<MAP_WIDTH;x++){
+      if(mapData[y][x] === 2) return false;
+    }
+  }
+  return true;
+}
 
 /* ---------- INPUT ---------- */
 document.querySelectorAll('#mobileControls button').forEach(b=>{
@@ -370,6 +378,13 @@ window.onkeydown = e=>{
 /* Support external trigger used previously (paySuccess) */
 window.addEventListener('message', (e)=>{
   if(e.data && e.data.type === 'paySuccess'){
+  if(checkWin()){
+  gameRunning = false;
+  const gm = document.getElementById("game-message");
+  gm.textContent = "YOU WIN!";
+  gm.style.display = "block";
+  window.parent.postMessage({ type:"submitScore", score: score },"*");
+  }
     // Reset and then start (same as original flow)
     resetGame();
     startGame();
