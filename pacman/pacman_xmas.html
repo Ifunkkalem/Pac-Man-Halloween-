@@ -320,10 +320,32 @@ function gameLoop(ts){
 function startGame(){
   if(gameRunning) return;
 
-  unlockAudio(); // ensure audio available if start triggered programmatically
+  // Usahakan unlock audio dulu (ada di file)
+  try {
+    unlockAudio();
+  } catch(e){ /* ignore */ }
 
-  // attempt to play start SFX
-  try{ sfxStart.currentTime = 0; sfxStart.play().catch(()=>{}); }catch(e){}
+  // Pastikan BGM berusaha diputar (jika belum kebuka)
+  try {
+  // gunakan instance baru supaya tidak tergantung single audio element
+  const eat = new Audio("assets/sfx_dot_eat.mp3");
+  eat.volume = 0.8;
+  eat.play().catch(()=>{});
+} catch(e){}
+
+  // Play start SFX — pakai instance fresh sebagai fallback
+  try {
+    // coba mainkan element sfxStart terlebih dahulu
+    sfxStart.currentTime = 0;
+    sfxStart.play().catch(()=>{ 
+      // fallback: buat instance baru agar beberapa browser menerima
+      const f = new Audio("assets/sfx_start.mp3");
+      f.volume = 0.9;
+      f.play().catch(()=>{});
+    });
+  } catch(e){
+    try { (new Audio("assets/sfx_start.mp3")).play().catch(()=>{}); } catch(_){}
+  }
 
   // show countdown, keep ghosts inactive until countdown done
   ghostActive = false;
@@ -342,15 +364,6 @@ function startGame(){
       lastMove = performance.now();
     }
   }, 1000);
-}
-
-/* ---------- END GAME (preserve original) ---------- */
-function endGame(){
-  gameRunning = false;
-  const gm = document.getElementById('game-message');
-  gm.textContent = 'GAME OVER';
-  gm.style.display = 'block';
-  try{ window.parent.postMessage({ type: "submitScore", score: score }, "*"); }catch(e){}
 }
 
 /* ---------- INPUT ---------- */
