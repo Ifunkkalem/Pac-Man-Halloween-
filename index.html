@@ -10,7 +10,8 @@
 <style>
 /* --- STYLING UTAMA --- */
 *{box-sizing:border-box;margin:0;padding:0;font-family:Trebuchet MS, sans-serif}
-/* UPGRADE: Gunakan min-height untuk konsistensi di DApp Browser */
+
+/* UPGRADE: Gunakan min-height dan overflow-y:auto untuk konsistensi di DApp Browser */
 body{
     min-height: 100vh;
     height: 100%;
@@ -43,14 +44,14 @@ button{padding:10px;border-radius:8px;border:none;background:linear-gradient(90d
 
 iframe{
     width:100%;
-    /* UPGRADE: Hapus height:100% untuk menggunakan height tetap di mobile */
+    /* Di desktop, gunakan height:100% untuk mengisi ruang */
     height:100%; 
     border-radius:8px;
     border:0;
     display:none;
 }
 
-/* --- CSS untuk Poster Overlay --- */
+/* --- CSS untuk Poster Overlay (Sudah Benar) --- */
 #logoPlaceholder {
     width: 100%; 
     height: 100%; 
@@ -75,12 +76,10 @@ iframe{
     left: 0;
     width: 100%;
     height: 100%;
-    
     display: flex;
     flex-direction: column;
     justify-content: space-between; 
     align-items: center;
-    
     text-align: center;
     color: white;
     text-shadow: 0 0 5px black, 0 0 10px red; 
@@ -132,17 +131,22 @@ iframe{
         padding-top: 5px; 
         padding-bottom: 5px;
         flex: 1; 
+        /* UPGRADE: Pastikan area utama bisa di-scroll */
+        overflow-y: auto; 
     }
 
     .content-area {
+        /* UPGRADE: Hapus batasan height */
         height: auto; 
-        max-height: 100%;
+        max-height: none;
         margin-bottom: 50px; 
     }
 
-    /* KUNCI: Set tinggi iframe game agar tidak terpotong (gunakan nilai absolut) */
+    /* KUNCI PERBAIKAN: Gunakan vw untuk memastikan iframe kotak dan Pad terlihat */
     iframe#gameFrame {
-         height: 380px; 
+         width: 90vw; /* Iframe selebar 90% layar */
+         height: 90vw; /* Tinggi sama dengan lebar (membuat kotak sempurna) */
+         max-height: 450px; /* Batas maksimum agar tidak terlalu besar di ponsel tinggi/tablet */
          display: none;
     }
     
@@ -233,7 +237,6 @@ function showMainContent(contentId) {
     // Tampilkan yang diminta
     document.getElementById(contentId).style.display = 'flex'; 
     if (contentId === 'gameFrame' || contentId === 'leaderFrame') {
-        // UPGRADE: Di mobile, iframe membutuhkan display: block agar tinggi tetapnya bekerja
         document.getElementById(contentId).style.display = 'block';
     }
 }
@@ -241,7 +244,6 @@ function showMainContent(contentId) {
 // FUNGSI BARU: Update Jackpot Pool dan Top Score
 async function updateSummaryData() {
     try {
-        // Logika mengambil Top Score
         const [topPlayers, scores] = await gameContract.getTop10();
         if (scores.length > 0) {
             document.getElementById('topScoreValue').innerText = scores[0].toString();
@@ -255,7 +257,6 @@ async function updateSummaryData() {
     
     try {
         if (provider) {
-             // Logika mengambil Pool Value
              const poolWei = await provider.getBalance(CONTRACT_ADDRESS);
              const poolEth = ethers.utils.formatEther(poolWei);
              document.getElementById('poolValue').innerText = poolEth.substring(0, 6) + ' SOMI'; 
