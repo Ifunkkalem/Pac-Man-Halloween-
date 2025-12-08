@@ -70,6 +70,7 @@ const CONTRACT_ADDRESS = "0x35a7f3eE9A2b5fdEE717099F9253Ae90e1248AE3";
 const CHAIN_ID = 5031;
 
 // ABI leaderboard
+// Catatan: ABI ini hanya untuk getTop10(). Jika kontrak punya fungsi getPlayerTotalScore, itu lebih baik.
 const CONTRACT_ABI = [
   "function getTop10() view returns (address[] memory, uint256[] memory)"
 ];
@@ -81,12 +82,11 @@ const tableEl  = document.getElementById("leaderboardTable");
 
 let provider;
 
-// ✅ PRIORITAS: WALLET PROVIDER (ANTI CORS)
+// ✅ PROVIDER SETUP (Tidak Berubah)
 if (window.ethereum) {
   provider = new ethers.providers.Web3Provider(window.ethereum);
   console.log("✅ Using Wallet Provider");
 } 
-// ✅ FALLBACK (JIKA WALLET TIDAK ADA)
 else {
   provider = new ethers.providers.JsonRpcProvider(
     "https://api.infra.mainnet.somnia",
@@ -101,37 +101,82 @@ const contract = new ethers.Contract(
   provider
 );
 
-async function loadLeaderboard() {
-  try {
-    const [wallets, scores] = await contract.getTop10();
-    
-    // --- TAMBAHKAN KODE DEBUG INI DI SINI ---
-    console.log("Data Wallets Diterima:", wallets);
-    console.log("Data Scores Diterima:", scores);
-    console.log("Jumlah Entri:", wallets.length);
-    // ------------------------------------------
+// ------------------------------------------------------------------
+// ⭐ FUNGSI BARU: AGREGASI DAN SORTING (INTI PERBAIKAN) ⭐
+// ------------------------------------------------------------------
+function aggregateAndSort(rawPlayers, rawScores) {
+    const aggregated = {};
 
-    bodyEl.innerHTML = "";
+    // 1. Kumpulkan Total Skor per Wallet (Agregasi)
+    for (let i = 0; i < rawPlayers.length; i++) {
+        const address = rawPlayers[i];
+        // Konversi BigNumber/String menjadi Number
+        const score = Number(rawScores[i].toString()); 
 
-    // Cek apakah ada data yang kembali sebelum looping
-    if (wallets.length === 0) {
+        if (aggregated[address]) {
+            // Akumulasi: Tambahkan skor ke total yang sudah ada
+            aggregated[address] += score;
+        } else {
+            // Inisialisasi: Buat entri baru
+            aggregated[address] = score;
+        }
+    }
+
+    // 2. Konversi hasil agregasi ke Array
+    const finalLeaderboard = Object.keys(aggregated).map(address => ({
+        wallet: address,
+        totalScore: aggregated[address]
+    }));
+
+    // 3. Urutkan Array berdasarkan Total Score (Descending)
+    finalLeaderboard.sort((a, b) => b.totalScore - a.totalScore);
+
+    return finalLeaderboard;
+}
+
+// ------------------------------------------------------------------
+// ⭐ FUNGSI BARU: RENDER TABEL ⭐
+// ------------------------------------------------------------------
+function renderLeaderboardTable(data) {
+    bodyEl.innerHTML = ""; // Bersihkan isi tabel
+
+    // Jika data kosong setelah agregasi
+    if (data.length === 0) {
         statusEl.innerText = "Tidak ada skor yang tercatat di blockchain saat ini.";
         statusEl.style.display = "block";
-        return; // Hentikan fungsi jika kosong
+        return;
     }
 
-    for (let i = 0; i < wallets.length; i++) {
-      bodyEl.innerHTML += `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${wallets[i].slice(0, 6)}...${wallets[i].slice(-4)}</td>
-          <td>${Number(scores[i])}</td> 
-        </tr>
-      `;
-    }
+    data.forEach((entry, index) => {
+        const rank = index + 1;
+        const walletDisplay = entry.wallet.slice(0, 6) + '...' + entry.wallet.slice(-4);
+
+        bodyEl.innerHTML += `
+            <tr>
+                <td>${rank}</td>
+                <td>${walletDisplay}</td>
+                <td>${entry.totalScore}</td> 
+            </tr>
+        `;
+    });
 
     statusEl.style.display = "none";
     tableEl.style.display = "table";
+}
+
+// ------------------------------------------------------------------
+// ⭐ FUNGSI UTAMA: LOAD LEADERBOARD (MEMANGGIL FUNGSI AGREGASI) ⭐
+// ------------------------------------------------------------------
+async function loadLeaderboard() {
+  try {
+    // 1. Ambil data mentah (raw data) dari kontrak
+    const [rawPlayers, rawScores] = await contract.getTop10();
+    
+    // 2. Agregasi dan Urutkan data mentah
+    const finalData = aggregateAndSort(rawPlayers, rawScores);
+    
+    // 3. Render data yang sudah bersih ke tabel
+    renderLeaderboardTable(finalData);
 
   } catch (err) {
     console.error("LEADERBOARD ERROR:", err);
@@ -139,7 +184,7 @@ async function loadLeaderboard() {
   }
 }
 
-// ✅ LOAD SEKALI SAJA (ANTI KEDIP)
+// ✅ LOAD SEKALI SAJA
 loadLeaderboard();
 </script>
 
