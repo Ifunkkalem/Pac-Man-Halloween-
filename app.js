@@ -84,13 +84,45 @@ window.addEventListener('pointerdown', unlockAudio, { once: true });
 // =======================================================
 // 5. CONNECT WALLET (and send walletInfo to UI via postMessage)
 // =======================================================
-async function connectWalletAndNotify(shouldNotifyUI = true){
-  unlockAudio();
+async function connectWallet() {
+    unlockAudio();
 
-  if(typeof ethers === 'undefined' || !window.ethereum){
-    alert("Wallet/Ethers not found. Please open with an EVM wallet (Metamask/OKX/etc).");
-    return false;
-  }
+    if (!window.ethereum) {
+        alert("Wallet tidak ditemukan.");
+        return;
+    }
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
+
+    // ✅ TARUH KODE INI TEPAT DI SINI
+    document.getElementById("walletAddr").innerText =
+      "Wallet: " + userAddress.substring(0,6)+"..."+userAddress.slice(-4);
+
+    const balWei = await provider.getBalance(userAddress);
+
+    document.getElementById("walletBal").innerText =
+      "SOMI: " + ethers.utils.formatEther(balWei);
+
+    // ===============================
+
+    readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    gameContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+    try {
+        startFeeWei = await readContract.startFeeWei();
+        document.getElementById("feeDisplay").innerText =
+          ethers.utils.formatEther(startFeeWei);
+    } catch {
+        startFeeWei = ethers.utils.parseEther("0.01");
+        document.getElementById("feeDisplay").innerText = "0.01 (Fallback)";
+    }
+
+    document.getElementById("btnPlay").style.display = "block";
+    document.getElementById("btnConnect").style.display = "none";
+}
 
   try{
     provider = new ethers.providers.Web3Provider(window.ethereum, "any");
@@ -325,12 +357,18 @@ window.addEventListener('message', async (ev) => {
 // =======================================================
 // 10. WIRE UP BUTTONS ON INDEX
 // =======================================================
-document.addEventListener('DOMContentLoaded', () => {
-  // Index uses btnConnect, btnPlay, btnLeaderboard (see index.html)
-  if(btnConnect) btnConnect.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await connectWalletAndNotify();
-  });
+document.addEventListener("DOMContentLoaded", () => {
+
+  // ✅ SINKRON DENGAN INDEX.HTML
+  const connectBtn = document.getElementById("btnConnect");
+  const playBtn = document.getElementById("btnPlay");
+  const leaderboardBtn = document.getElementById("btnLeaderboard");
+
+  connectBtn.addEventListener("click", connectWallet);
+  playBtn.addEventListener("click", payToPlay);
+  leaderboardBtn.addEventListener("click", loadLeaderboardFrame);
+
+ });
 
   if(btnPlay) btnPlay.addEventListener('click', async (e) => {
     e.preventDefault();
