@@ -85,6 +85,18 @@ const MAP_H = GAME_MAP.length;
 canvas.width = MAP_W * TILE;
 canvas.height = MAP_H * TILE;
 
+/* ========== UTILITY: rounded rect (compat) ========== */
+function roundRect(ctx, x, y, w, h, r) {
+  if (r === undefined) r = 5;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 /* ========== STATE ========== */
 let mapData, pacman, ghosts, score = 0;
 let lastMove = 0;
@@ -97,9 +109,9 @@ function resetGame(){
   mapData = GAME_MAP.map(r=>[...r]);
   pacman = {x:1,y:1,dir:"right",next:"right"};
   ghosts = [
-    {x:9,y:9,color:"#ff0033", antlerColor:"#964B00", noseColor:"#cc0000"}, // Merah (Rudolph)
-    {x:10,y:9,color:"#00b300", antlerColor:"#964B00", noseColor:"#556B2F"}, // Hijau
-    {x:8,y:9,color:"#1e90ff", antlerColor:"#964B00", noseColor:"#87CEFA"} // Biru
+    {x:9,y:9,color:"#ff0033", antlerColor:"#964B00", noseColor:"#cc0000"},
+    {x:10,y:9,color:"#00b300", antlerColor:"#964B00", noseColor:"#556B2F"},
+    {x:8,y:9,color:"#1e90ff", antlerColor:"#964B00", noseColor:"#87CEFA"}
   ];
   score = 0;
   document.getElementById("current-score-display").textContent = score;
@@ -117,10 +129,10 @@ function drawMap(){
         // Dinding Merah
         ctx.fillStyle="#b91c1c";
         ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-        // Border Putih Salju
-        ctx.strokeStyle="#f9fafb";
-        ctx.lineWidth=2;
-        ctx.strokeRect(x*TILE,y*TILE,TILE,TILE);
+        // Border Putih Salju (ringan)
+        ctx.strokeStyle="rgba(249,250,251,0.6)";
+        ctx.lineWidth=1;
+        ctx.strokeRect(x*TILE+0.5,y*TILE+0.5,TILE-1,TILE-1);
       } else {
         // Latar Belakang Biru Malam
         ctx.fillStyle="#020617";
@@ -137,33 +149,29 @@ function drawMap(){
   }
 }
 
-/* ========== DRAW PACMAN (SANTA CLAUS) - MODIFIKASI ANIMASI KAKI ========== */
+/* ========== DRAW PACMAN (SANTA CLAUS) ========== */
 function drawPacman(){
-  // Hitung efek goyangan (wobble)
-  const wobbleY = Math.sin(Date.now() / 150) * 1.5; // Naik turun 1.5 pixel
-  
+  const wobbleY = Math.sin(Date.now() / 150) * 1.5;
   const x = pacman.x*TILE + TILE/2;
-  // Tambahkan wobbleY ke posisi y
   const y = pacman.y*TILE + TILE/2 + wobbleY;
-  
   const mouth = Math.abs(Math.sin(Date.now()/120))*0.5;
   const angle = {right:0,left:Math.PI,up:-Math.PI/2,down:Math.PI/2}[pacman.dir];
-  
-  // 1. Santa's Face (Kuning Kulit)
+
+  // face
   ctx.fillStyle="#facc15"; 
   ctx.beginPath();
   ctx.moveTo(x,y);
   ctx.arc(x,y,TILE/2-2,angle+mouth*0.6,angle-mouth*0.6+Math.PI*2);
   ctx.fill();
 
-  // 2. Santa's Beard (Janggut Putih - membulat)
+  // beard
   ctx.fillStyle="white";
   ctx.beginPath();
   ctx.arc(x, y + TILE/8, TILE/3.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // 3. Topi Santa: Merah 
-  ctx.fillStyle="#cc0000"; 
+  // santa hat
+  ctx.fillStyle="#cc0000";
   ctx.beginPath();
   ctx.moveTo(x - TILE*0.35, y - TILE*0.3);
   ctx.lineTo(x + TILE*0.35, y - TILE*0.3);
@@ -171,41 +179,36 @@ function drawPacman(){
   ctx.closePath();
   ctx.fill();
 
-  // 4. Pompom Putih (Ujung Topi)
+  // pompom
   ctx.fillStyle="white";
   ctx.beginPath();
   ctx.arc(x, y - TILE*0.8, 3.5, 0, Math.PI*2);
   ctx.fill();
-  
-  // 5. Bulu Putih (Garis Bawah Topi)
+
+  // fur strip
   ctx.fillStyle="white";
   ctx.fillRect(x - TILE*0.35, y - TILE*0.3, TILE*0.7, 3);
 }
 
-/* ========== DRAW GHOSTS (REINDEER) - MODIFIKASI ANIMASI KAKI ========== */
+/* ========== DRAW GHOSTS (REINDEER) ========== */
 function drawGhosts(){
   ghosts.forEach(g=>{
-    // Hitung efek goyangan (wobble)
-    const wobbleY = Math.sin(Date.now() / 150 + g.x * 0.5) * 1.5; // Naik turun 1.5 pixel (offset agar tiap rusa beda)
-    
+    const wobbleY = Math.sin(Date.now() / 150 + g.x * 0.5) * 1.5;
     const x = g.x*TILE + TILE/2;
-    // Tambahkan wobbleY ke posisi y
     const y = g.y*TILE + TILE/2 + wobbleY;
-    
     const size = TILE * 0.45; 
-    const headWobble = Math.sin(Date.now() / 200) * 1; 
+    const headWobble = Math.sin(Date.now() / 200) * 1;
 
-    // 1. Badan Rusa (Kotak dengan sudut bulat)
+    // body - rounded rect path
     ctx.save();
     ctx.shadowBlur = 8;
     ctx.shadowColor = g.color;
     ctx.fillStyle = g.color;
-    ctx.beginPath();
-    ctx.roundRect(x - size, y - size, size * 2, size * 2, 5);
+    roundRect(ctx, x - size, y - size, size * 2, size * 2, 6);
     ctx.fill();
     ctx.restore();
 
-    // 2. Mata
+    // eyes
     ctx.fillStyle="white";
     ctx.beginPath();
     ctx.arc(x - TILE*0.15, y - TILE*0.15, 2, 0, Math.PI*2);
@@ -217,24 +220,22 @@ function drawGhosts(){
     ctx.arc(x + TILE*0.15 + headWobble, y - TILE*0.15, 1, 0, Math.PI*2);
     ctx.fill();
 
-    // 3. Hidung (Nose)
+    // nose
     ctx.fillStyle=g.noseColor;
     ctx.beginPath();
     ctx.arc(x, y + TILE*0.25, 3, 0, Math.PI*2);
     ctx.fill();
 
-    // 4. Tanduk (Antlers)
+    // antlers (simple)
     ctx.fillStyle=g.antlerColor;
-    // Kiri
     ctx.fillRect(x - TILE*0.35, y - TILE*0.4, 2, 5);
     ctx.fillRect(x - TILE*0.35 + 2, y - TILE*0.4 - 2, 5, 2);
-    // Kanan
     ctx.fillRect(x + TILE*0.35 - 2, y - TILE*0.4, 2, 5);
     ctx.fillRect(x + TILE*0.35 - 7, y - TILE*0.4 - 2, 5, 2);
   });
 }
 
-/* ========== MOVEMENT (Tidak Berubah) ========== */
+/* ========== MOVEMENT ========== */
 function canMove(x,y){ return mapData[y] && mapData[y][x] !== 1; }
 
 function movePacman(){
@@ -258,7 +259,7 @@ function moveGhosts(){
   });
 }
 
-/* ========== COLLISIONS (Tidak Berubah) ========== */
+/* ========== COLLISIONS ========== */
 function checkCollision(){
   if(mapData[pacman.y][pacman.x] === 2){
     mapData[pacman.y][pacman.x] = 0;
@@ -268,7 +269,6 @@ function checkCollision(){
   }
 
   for(const g of ghosts){
-    // Periksa tabrakan (meski ada wobble, kita gunakan posisi grid utama)
     if(g.x === pacman.x && g.y === pacman.y){
       gameOver();
       return;
@@ -299,7 +299,7 @@ function gameOver(){
   parent.postMessage({ type: "submitScore", score }, "*");
 }
 
-/* ========== LOOP (Tidak Berubah) ========== */
+/* ========== LOOP ========== */
 function loop(ts){
   if(gameRunning && ts - lastMove > MOVE_INTERVAL){
     movePacman();
@@ -315,7 +315,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-/* ========== MESSAGE HANDLER & CONTROLS (Tidak Berubah) ========== */
+/* ========== MESSAGE HANDLER & CONTROLS ========== */
 window.addEventListener("message", (e) => {
   const d = e.data || {};
   if(d.type === "paySuccess"){
