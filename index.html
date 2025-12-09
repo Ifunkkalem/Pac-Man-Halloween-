@@ -10,8 +10,6 @@
 <style>
 /* --- STYLING UTAMA --- */
 *{box-sizing:border-box;margin:0;padding:0;font-family:Trebuchet MS, sans-serif}
-
-/* UPGRADE: Gunakan min-height dan overflow-y:auto untuk konsistensi di DApp Browser */
 body{
     min-height: 100vh;
     height: 100%;
@@ -21,7 +19,6 @@ body{
     overflow-x: hidden;
 }
 
-/* UPGRADE: Gunakan min-height untuk konsistensi tinggi */
 #wrap{display:flex;min-height:100vh;width:100%}
 
 #sidebar{width:160px;background:#fff;color:#000;padding:12px;display:flex;flex-direction:column;gap:10px}
@@ -44,14 +41,13 @@ button{padding:10px;border-radius:8px;border:none;background:linear-gradient(90d
 
 iframe{
     width:100%;
-    /* Di desktop, gunakan height:100% untuk mengisi ruang */
     height:100%; 
     border-radius:8px;
     border:0;
     display:none;
 }
 
-/* --- CSS untuk Poster Overlay (Sudah Benar) --- */
+/* --- CSS untuk Poster Overlay --- */
 #logoPlaceholder {
     width: 100%; 
     height: 100%; 
@@ -106,13 +102,14 @@ iframe{
     pointer-events: auto;
 }
 
-/* --- UPGRADE: MEDIA QUERY untuk Ponsel (DApp Browser) --- */
+/* --- MEDIA QUERY untuk Ponsel (Perbaikan Mobile Layout) --- */
 @media (max-width: 768px) {
     #wrap {
         flex-direction: column; 
         min-height: 100%;
     }
 
+    /* Sidebar menjadi baris horizontal di atas */
     #sidebar {
         width: 100%;
         flex-direction: row; 
@@ -131,26 +128,23 @@ iframe{
         padding-top: 5px; 
         padding-bottom: 5px;
         flex: 1; 
-        /* UPGRADE: Pastikan area utama bisa di-scroll */
         overflow-y: auto; 
     }
 
     .content-area {
-        /* UPGRADE: Hapus batasan height */
         height: auto; 
         max-height: none;
         margin-bottom: 50px; 
     }
 
-    /* KUNCI PERBAIKAN: Gunakan vw untuk memastikan iframe kotak dan Pad terlihat */
+    /* FIX: Gunakan vw untuk memastikan iframe kotak dan Pad terlihat */
     iframe#gameFrame {
-         width: 90vw; /* Iframe selebar 90% layar */
-         height: 90vw; /* Tinggi sama dengan lebar (membuat kotak sempurna) */
-         max-height: 450px; /* Batas maksimum agar tidak terlalu besar di ponsel tinggi/tablet */
+         width: 90vw; 
+         height: 90vw; 
+         max-height: 450px; 
          display: none;
     }
     
-    /* Sesuaikan ukuran font poster agar muat di layar kecil */
     #poster-overlay h2 {
         font-size: 1.6em;
     }
@@ -160,6 +154,7 @@ iframe{
     }
 }
 </style>
+<base href="/Pacman.somniaxmas/"> 
 </head>
 <body>
 <div id="wrap">
@@ -180,7 +175,7 @@ iframe{
 
     <div class="content-area">
         <div id="logoPlaceholder">
-            <img src="/assets/logo1.png?v=3" alt="Somnia Christmas Logo" class="poster-image"> 
+            <img src="assets/logo1.png?v=3" alt="Somnia Christmas Logo" class="poster-image"> 
             
             <div id="poster-overlay">
                 <h2>SOMNIA CHRISTMAS CARNIVAL!</h2>
@@ -220,30 +215,32 @@ const walletAddrEl = document.getElementById('walletAddr');
 const walletBalEl = document.getElementById('walletBal');
 const gameFrame = document.getElementById('gameFrame');
 const leaderFrame = document.getElementById('leaderFrame');
-const logoPlaceholder = document.getElementById('logoPlaceholder'); // Elemen baru
+const logoPlaceholder = document.getElementById('logoPlaceholder'); 
 
 let provider, signer, userAddress, gameContract, startFeeWei;
 
 // Utility: show minimal alert
 function info(msg){ console.log(msg); alert(msg); }
 
-// FUNGSI BARU: Mengatur tampilan utama (Logo, Game, Leaderboard)
 function showMainContent(contentId) {
-    // Sembunyikan semua
     logoPlaceholder.style.display = 'none';
     gameFrame.style.display = 'none';
     leaderFrame.style.display = 'none';
 
-    // Tampilkan yang diminta
     document.getElementById(contentId).style.display = 'flex'; 
     if (contentId === 'gameFrame' || contentId === 'leaderFrame') {
         document.getElementById(contentId).style.display = 'block';
     }
 }
 
-// FUNGSI BARU: Update Jackpot Pool dan Top Score
 async function updateSummaryData() {
     try {
+        if (!gameContract) {
+             // Coba buat provider read-only jika belum ada
+             const readProvider = new ethers.providers.JsonRpcProvider("https://dream-rpc.somnia.network/"); 
+             gameContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+        }
+        
         const [topPlayers, scores] = await gameContract.getTop10();
         if (scores.length > 0) {
             document.getElementById('topScoreValue').innerText = scores[0].toString();
@@ -351,8 +348,14 @@ window.addEventListener("message", async (event) => {
 
   if(data.type === "requestStartFee") {
     try{
-      if(!gameContract) gameContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-      const fee = await gameContract.startFeeWei();
+      // Gunakan provider read-only untuk meminta fee jika signer belum ada
+      let feeProvider = provider;
+      if (!feeProvider) {
+          feeProvider = new ethers.providers.JsonRpcProvider("https://dream-rpc.somnia.network/");
+      }
+      
+      const feeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, feeProvider);
+      const fee = await feeContract.startFeeWei();
       const feeEth = ethers.utils.formatEther(fee);
       gameFrame.contentWindow.postMessage({ type: "startFee", feeWei: fee.toString(), feeEth }, "*");
     }catch(e){ console.warn("error reading fee", e); }
@@ -361,9 +364,7 @@ window.addEventListener("message", async (event) => {
 
 // ========== INISIALISASI SAAT LOAD ==========
 document.addEventListener('DOMContentLoaded', () => {
-    // Tampilkan logo placeholder saat pertama kali dimuat
     showMainContent('logoPlaceholder');
-    // Coba update summary data (walaupun mungkin gagal jika belum connect)
     updateSummaryData(); 
 });
 </script>
