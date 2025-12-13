@@ -311,25 +311,30 @@ async function payToPlay() {
 
 
 // app.js (Message Handler)
-window.addEventListener("message", async (ev) => {
-  const data = ev.data || {};
-  
-  // ... (dotEaten, requestConnectWallet, requestStartGame tetap sama)
 
-  // Dipicu saat Game Over/Win DARI TOMBOL SUBMIT SCORE di iframe
-  if (data.type === "submitScore") {
-    const score = data.score;
-    // Panggil fungsi submitScore yang sekarang tidak mengirim sinyal balik
-    await submitScoreTx(score); 
+// ... (kode di atas) ...
+
+  // Dipicu oleh tombol "Kembali ke Menu Utama" dari iframe
+  if (data.type === "forceShowLogo") {
+    // pause bgm
+    if (backgroundMusic) { backgroundMusic.pause(); backgroundMusic.currentTime = 0; }
+    
+    // 🔥 KRITIS: Lakukan aksi Sembunyikan Game, Tampilkan Logo
+    const currentFrame = gameFrame || $("gameFrame");
+    const logo = $("logoPlaceholder");
+    const leaderFrame = $("leaderFrame") || $("leaderboardFrame");
+
+    if (currentFrame) currentFrame.style.display = "none";
+    if (leaderFrame) leaderFrame.style.display = "none"; // Pastikan leader juga tersembunyi
+    if (logo) logo.style.display = "block";
+
+    // Opsi: Kirim sinyal ke index.html jika ada UI diluar game frame
+    window.postMessage({ type: 'forceShowLogo' }, '*'); 
+    
     return;
   }
   
-  if (data.type === "forceShowLogo") {
-    // Dipicu tombol "Kembali ke Menu Utama" di iframe
-    // ... (Logika kembali ke menu tetap sama) ...
-    return;
-  }
-});
+
 
 
 async function submitScoreTx(score) {
