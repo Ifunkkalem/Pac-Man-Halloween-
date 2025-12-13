@@ -443,7 +443,18 @@ function gameOver(){
 }
 
 // Tambahkan Event Listeners untuk 3 Tombol di pacman_xmas.html
-document.addEventListener('DOMContentLoaded', () => {
+// pacman_xmas.html (Event Listener)
+
+    if (playBtn) {
+        playBtn.addEventListener('click', () => {
+            // 🔥 KRITIS: Sembunyikan tombol saat memulai flow game baru
+            actionBtns.style.display = "none"; 
+            
+            // Kirim sinyal bayar ulang ke app.js
+            parent.postMessage({ type: "requestStartGame" }, "*"); 
+        });
+    }
+
     // Pastikan tombol ada (ganti ID jika berbeda)
     const submitBtn = document.getElementById('submitScoreBtn');
     const backBtn = document.getElementById('backBtn');
