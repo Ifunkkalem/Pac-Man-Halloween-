@@ -375,6 +375,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
+
 /* ========== MESSAGES & CONTROLS ========== */
 /* parent must send {type:'paySuccess'} to allow play */
 window.addEventListener("message", (e) => {
@@ -389,6 +390,9 @@ window.addEventListener("message", (e) => {
   if(d.type === "forceReset"){
     resetGame();
   }
+  
+  // LOGIKA PENTING: Terima input dari parent (jika parent mencoba mengirim)
+  // Walaupun D-Pad ada di sini, kita tetap siapkan receiver ini untuk input eksternal
   if(d.type === "mobileInput"){
     const dir = (d.direction || "").toLowerCase();
     if(["up","down","left","right"].includes(dir)){
@@ -397,12 +401,16 @@ window.addEventListener("message", (e) => {
   }
 });
 
-/* send mobile input to parent so parent knows (keeps parity) */
-function sendMobileInput(direction){
+/* FIX: Fungsi untuk mengatur input internal D-Pad */
+function handleInternalInput(direction){
   if(direction && typeof direction === "string"){
     pacman.next = direction.toLowerCase();
+    
+    // Opsional: Tetap kirim pesan ke parent hanya jika Anda ingin parent
+    // (index.html) tahu arah pergerakan terbaru untuk tujuan logging atau UI.
+    // Jika tidak perlu, HAPUS BARIS DI BAWAH.
+    // try{ parent.postMessage({ type: "mobileInput", direction }, "*"); }catch(e){}
   }
-  try{ parent.postMessage({ type: "mobileInput", direction }, "*"); }catch(e){}
 }
 
 /* INPUT HANDLERS - gated by allowLocalPlay */
@@ -418,7 +426,8 @@ document.querySelectorAll("#mobileControls button").forEach(btn=>{
       setTimeout(()=> gm.style.display = "none", 1200);
       return;
     }
-    sendMobileInput(dir);
+    // FIX: Langsung panggil fungsi internal yang mengatur pacman.next
+    handleInternalInput(dir); 
   };
   const end = (ev) => {
     ev.preventDefault();
@@ -441,8 +450,9 @@ window.addEventListener("keydown", (e)=>{
       setTimeout(()=> gm.style.display = "none", 1200);
       return;
     }
-    pacman.next = dir;
-    try{ parent.postMessage({ type:"mobileInput", direction: dir }, "*"); }catch(e){}
+    // FIX: Gunakan fungsi yang sama untuk pergerakan keyboard
+    handleInternalInput(dir);
+    // Hapus baris parent.postMessage di sini juga jika tidak diperlukan.
   }
 });
 
@@ -454,3 +464,4 @@ requestAnimationFrame(loop);
 </script>
 </body>
 </html>
+
