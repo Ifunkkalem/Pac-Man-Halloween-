@@ -7,6 +7,8 @@ const CONTRACT_ABI = [
   "function startFeeWei() view returns (uint256)",
   "function startGame() payable",
   "function submitScore(uint256 _score)"
+  "function getJackpot() view returns (uint256)",
+  "function getTopScore() view returns (uint256)"
 ];
 
 // Somnia Network Configuration (Chain ID 5031)
