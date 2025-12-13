@@ -374,8 +374,8 @@ window.addEventListener("message", async (ev) => {
   
   // [PERBAIKAN HEADER] Menerima Jackpot/Top Score dari Leaderboard.html
   if (data.type === "leaderboardData") {
-    const jackpotDisplay = $("jackpotDisplay"); 
-    const topScoreDisplay = $("topScoreDisplay"); 
+    const jackpotDisplay = $("poolValue"); 
+    const topScoreDisplay = $("topScoreValue"); 
     
     if (jackpotDisplay) {
         jackpotDisplay.textContent = "Jackpot: " + parseFloat(data.jackpot).toFixed(6) + " SOMI";
