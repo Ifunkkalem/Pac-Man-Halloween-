@@ -7,7 +7,8 @@ const CONTRACT_ABI = [
   "function startFeeWei() view returns (uint256)",
   "function startGame() payable",
   "function submitScore(uint256 _score)",
-  // <<<--- Tambahkan ABI untuk Top Score jika diperlukan (diasumsikan di tempat lain)
+  // Tambahkan fungsi yang dibutuhkan untuk fetching leaderboard di sini jika app.js yang melakukannya, 
+  // tetapi kali ini leaderboard.html yang akan melakukan fetching dan mengirim data ke sini.
 ];
 
 // Somnia Network Configuration (Chain ID 5031)
@@ -23,7 +24,7 @@ const SOMNIA_NETWORK_CONFIG = {
 // audio paths (relative to index.html)
 const SFX_START_SRC = "assets/sfx_start.mp3";
 const SFX_DOT_EAT_SRC = "assets/sfx_dot_eat.mp3";
-const BGM_SRC = "assets/music_background.mp3"; // File 1MB Anda
+const BGM_SRC = "assets/music_background.mp3"; 
 
 // ---------------- STATE ----------------
 let provider = null;
@@ -58,13 +59,11 @@ async function loadBackgroundMusic() {
             backgroundMusic.loop = true;
             backgroundMusic.volume = 0.35;
             
-            // Tunggu hingga BGM siap diputar
             backgroundMusic.addEventListener('canplaythrough', () => {
                 console.log("BGM file loaded and ready to play (1MB).");
                 resolve();
             }, { once: true });
             
-            // Fallback: Resolve setelah 10 detik, walau gagal.
             setTimeout(() => {
                 if (!backgroundMusic || backgroundMusic.readyState < 3) {
                     console.warn("BGM loading timeout (10s). Proceeding without BGM.");
@@ -91,7 +90,6 @@ function unlockAudioOnGesture() {
             sfxStart.volume = 0.95; 
             audioUnlocked = true;
             window.removeEventListener('pointerdown', tryPlay);
-            console.log("Audio Context unlocked via SFX.");
         }).catch(() => {
              audioUnlocked = true;
              window.removeEventListener('pointerdown', tryPlay);
@@ -141,17 +139,15 @@ async function switchNetwork(provider) {
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: SOMNIA_CHAIN_ID }],
             });
-            // Give time for network switch to complete
             await new Promise(resolve => setTimeout(resolve, 500));
             return true;
         } catch (switchError) {
-            if (switchError.code === 4902) { // Network not added
+            if (switchError.code === 4902) { 
                 try {
                     await window.ethereum.request({
                         method: 'wallet_addEthereumChain',
                         params: [SOMNIA_NETWORK_CONFIG],
                     });
-                    // After adding, we assume switch is automatic or next check will handle it
                     await new Promise(resolve => setTimeout(resolve, 500));
                     return true;
                 } catch (addError) {
@@ -178,25 +174,20 @@ async function connectWallet() {
     return false;
   }
   try {
-    // 1. Request accounts and initialize provider
     provider = new ethers.providers.Web3Provider(window.ethereum, "any"); 
     await provider.send("eth_requestAccounts", []);
     signer = provider.getSigner();
     userAddress = await signer.getAddress();
     
-    // 2. Switch/Add Network to Somnia
     const networkSwitched = await switchNetwork(provider);
     if (!networkSwitched) return false;
     
-    // After potential switch, re-initialize provider and signer
     provider = new ethers.providers.Web3Provider(window.ethereum, "any"); 
     signer = provider.getSigner();
     
-    // 3. Create contract instances
     readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
     gameContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-    // 4. Update UI and fetch data
     safeText("walletAddr", "Wallet: " + userAddress.substring(0,6) + "..." + userAddress.slice(-4));
     
     try {
@@ -206,13 +197,11 @@ async function connectWallet() {
 
     try {
       startFeeWei = await readContract.startFeeWei();
-      // Safe guard for index.html display if needed, but not critical here
     } catch (e) {
       startFeeWei = ethers.utils.parseEther("0.01");
       console.warn("failed read startFeeWei:", e);
     }
     
-    // 5. Notify index (for UI update)
     try { 
         window.postMessage({ 
             type: "walletInfo", 
@@ -225,7 +214,6 @@ async function connectWallet() {
     return true;
   } catch (err) {
     console.error("connectWallet error", err);
-    // 4001 is user rejected request
     if (err.code !== 4001) {
         alert("Connect failed: " + (err && err.message ? err.message : String(err)));
     }
@@ -243,75 +231,63 @@ async function payToPlay() {
     return false;
   }
 
-  // Ensure network is still Somnia
   const networkOk = await switchNetwork(provider);
   if (!networkOk) return false;
   
-  // ensure startFeeWei
   if (!startFeeWei) {
     try { startFeeWei = await readContract.startFeeWei(); } catch(e){ startFeeWei = ethers.utils.parseEther("0.01"); }
   }
   
-  // 🛑 Wajib: Tunggu BGM yang besar selesai dimuat SEBELUM Transaksi
   console.log("Starting BGM loading (expect 1MB) and waiting...");
   await loadBackgroundMusic(); 
 
   try {
-    // check balance
     const bal = await provider.getBalance(userAddress);
     if (bal.lt(startFeeWei)) {
       alert("Insufficient balance to pay start fee. Need " + ethers.utils.formatEther(startFeeWei) + " SOMI.");
       return false;
     }
 
-    // send tx
     const tx = await gameContract.startGame({ value: startFeeWei });
     console.log("startGame tx:", tx.hash);
     try { window.postMessage({ type: "startTxSent", txHash: tx.hash }, "*"); } catch(e){}
 
     alert("Transaction sent. Waiting for confirmation...");
     
-    // <<<--- FIX INI ---<<<
-    // Mengirim sinyal "waitingForTx" ke iframe agar pesan di gameFrame muncul
+    // Kirim sinyal "waitingForTx" ke iframe agar pesan di gameFrame muncul
     const gameFrame = $("gameFrame");
     if (gameFrame && gameFrame.contentWindow) {
       gameFrame.contentWindow.postMessage({ type: "waitingForTx" }, "*");
     }
-    // <<<--- AKHIR FIX ---<<<
 
     await tx.wait();
 
-    // Game is now active
     isGameActive = true;
     
     playStartSfx(); 
     startBackgroundMusic();
     
-    // FIX PENTING: NOTIFIKASI IFRAME UNTUK MEMULAI GAME & MENGAKTIFKAN D-PAD
-    
+    // 1. TAMPILKAN IFRAME GAME & HILANGKAN LOGO (Ini mengatasi tampilan gelap setelah sukses)
+    const logoPlaceholder = $("logoPlaceholder"); 
+
+    if (logoPlaceholder) logoPlaceholder.style.display = "none";
+    if (gameFrame) gameFrame.style.display = "block"; 
+
+    // 2. KIRIM SINYAL START KE GAME (Ini memicu hitungan mundur & D-Pad)
     try { 
-      // Kirim ke index (wrapper)
       window.postMessage({ type: "paySuccess" }, "*");
       
-      // <<<--- FIX INI: Kirim ke iframe game secara eksplisit (ini yang mengaktifkan allowLocalPlay) ---<<<
       if (gameFrame && gameFrame.contentWindow) {
          gameFrame.contentWindow.postMessage({ type: "paySuccess" }, "*");
          console.log("Sent 'paySuccess' to game iframe. D-Pad and Countdown now active.");
       }
-      // <<<--- AKHIR FIX ---<<<
     } catch(e){ console.warn("postMessage paySuccess failed", e); }
 
-    // Update UI
-    if ($("logoPlaceholder")) $("logoPlaceholder").style.display = "none";
-    if (gameFrame) gameFrame.style.display = "block";
-
-    // refresh UI summary on index
     try { window.postMessage({ type: "refreshSummary" }, "*"); } catch(e){}
 
     return true;
   } catch (err) {
     console.error("payToPlay failed", err);
-    // 4001 is user rejected request
     if (err.code !== 4001) {
         alert("Payment failed: " + (err && err.message ? err.message : String(err)));
     }
@@ -331,18 +307,24 @@ async function submitScoreTx(score) {
   }
 
   try {
-    // pause bgm
     if (backgroundMusic) { backgroundMusic.pause(); backgroundMusic.currentTime = 0; }
     const tx = await gameContract.submitScore(Number(score));
     console.log("submitScore tx:", tx.hash);
     alert("Score submission sent. Waiting for confirmation...");
     await tx.wait();
     alert("Score submitted on-chain ✅");
-    // ask index to show leaderboard
-    try { window.postMessage({ type: "scoreSubmitted" }, "*"); } catch(e){}
+    
+    // Kirim sinyal ke index (wrapper) untuk update UI/Leaderboard
+    try { window.postMessage({ type: "scoreSubmitted" }, "*"); } catch(e){} 
+    
+    // Kirim sinyal ke iframe game untuk menghilangkan pesan overlay
+    const gameFrame = $("gameFrame");
+    if (gameFrame && gameFrame.contentWindow) {
+        gameFrame.contentWindow.postMessage({ type: "scoreSubmissionComplete" }, "*");
+    }
+
   } catch (err) {
     console.error("submitScore error", err);
-    // 4001 is user rejected request
     if (err.code !== 4001) {
         alert("Submit score failed: " + (err && err.message ? err.message : String(err)));
     }
@@ -378,21 +360,32 @@ window.addEventListener("message", async (ev) => {
     return;
   }
   
-  // <<<--- FIX INI: Listener untuk merespons permintaan status dari iframe ---<<<
+  // Menerima permintaan status dari iframe (pacman_xmas.html) saat dimuat ulang
   if (data.type === 'requestGameStatus') {
       const gameFrame = $("gameFrame");
       if (gameFrame && gameFrame.contentWindow) {
-          // Mengirim status koneksi/kesiapan kembali ke iframe
           gameFrame.contentWindow.postMessage({ 
               type: 'gameStatusResponse', 
-              // Jika signer ada, asumsikan sudah siap bermain (atau sudah pernah bayar)
-              allowLocalPlay: !!signer 
+              allowLocalPlay: !!signer // Kirim status koneksi/kesiapan
           }, ev.origin);
-          console.log("Responded to 'requestGameStatus' from iframe.");
       }
       return;
   }
-  // <<<--- AKHIR FIX ---<<<
+  
+  // [PERBAIKAN HEADER] Menerima Jackpot/Top Score dari Leaderboard.html
+  if (data.type === "leaderboardData") {
+    const jackpotDisplay = $("jackpotDisplay"); 
+    const topScoreDisplay = $("topScoreDisplay"); 
+    
+    if (jackpotDisplay) {
+        jackpotDisplay.textContent = "Jackpot: " + parseFloat(data.jackpot).toFixed(6) + " SOMI";
+    }
+    if (topScoreDisplay) {
+        topScoreDisplay.textContent = "Top: " + data.topScore;
+    }
+    
+    return;
+  }
 
 });
 
@@ -426,23 +419,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (gf) gf.style.display = "none";
     
     if (lf) {
+      // Reload iframe leaderboard untuk fetch data baru
       lf.src = "leaderboard.html?ts=" + Date.now();
       lf.style.display = "block";
     }
   });
 
-  // Check connection status on load (best effort)
   (async ()=> {
     if (window.ethereum) {
       try {
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
         const accounts = await tempProvider.listAccounts();
         if (accounts && accounts.length > 0) {
-          // If already connected, run a soft connect to populate UI
           await connectWallet(); 
         }
       } catch(e){ /* ignore failures on auto-check */ }
     }
   })();
 });
-                        
+
