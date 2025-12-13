@@ -223,16 +223,7 @@ async function connectWallet() {
     // notify index (if index wants this)
     try { window.postMessage({ type: "walletInfo", address: userAddress }, "*"); } catch(e){}
 
-    console.log("Connected", userAddress);
-    return true;
-  } catch (err) {
-    console.error("connectWallet error", err);
-    alert("Connect failed: " + (err && err.message ? err.message : String(err)));
-    return false;
-  }
-}
-
-// pay to play (on-chain) then start game
+    c// pay to play (on-chain) then start game
 async function payToPlay() {
   initAudio();
   unlockAudioOnGesture();
@@ -274,11 +265,17 @@ async function payToPlay() {
     playStartSfx(); 
     startBackgroundMusic(); // BGM di sini pasti sudah siap dimainkan
     
-    // notify iframe and index
+    // NOTIFIKASI PENTING KE IFRAME UNTUK MEMULAI GAME
     try { 
+      // Kirim ke index (wrapper)
       window.postMessage({ type: "paySuccess" }, "*");
+      
+      // FIX: Kirim ke iframe game secara eksplisit
       const gf = $("gameFrame");
-      if (gf && gf.contentWindow) gf.contentWindow.postMessage({ type: "paySuccess" }, "*");
+      if (gf && gf.contentWindow) {
+         gf.contentWindow.postMessage({ type: "paySuccess" }, "*");
+         console.log("Sent 'paySuccess' to game iframe.");
+      }
     } catch(e){ console.warn("postMessage paySuccess failed", e); }
 
     // show game iframe if index expects
@@ -297,6 +294,16 @@ async function payToPlay() {
     return false;
   }
 }
+    onsole.log("Connected", userAddress);
+    return true;
+  } catch (err) {
+    console.error("connectWallet error", err);
+    alert("Connect failed: " + (err && err.message ? err.message : String(err)));
+    return false;
+  }
+}
+
+
 
 // submit score on-chain
 async function submitScoreTx(score) {
