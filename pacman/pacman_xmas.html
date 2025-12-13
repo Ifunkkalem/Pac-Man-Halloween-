@@ -376,6 +376,8 @@ function loop(ts){
 }
 
 
+/* ... (Kode di atas tidak berubah) ... */
+
 /* ========== MESSAGES & CONTROLS ========== */
 /* parent must send {type:'paySuccess'} to allow play */
 window.addEventListener("message", (e) => {
@@ -390,9 +392,7 @@ window.addEventListener("message", (e) => {
   if(d.type === "forceReset"){
     resetGame();
   }
-  
-  // LOGIKA PENTING: Terima input dari parent (jika parent mencoba mengirim)
-  // Walaupun D-Pad ada di sini, kita tetap siapkan receiver ini untuk input eksternal
+  // Tetap siapkan receiver ini untuk input eksternal atau debugging
   if(d.type === "mobileInput"){
     const dir = (d.direction || "").toLowerCase();
     if(["up","down","left","right"].includes(dir)){
@@ -401,17 +401,15 @@ window.addEventListener("message", (e) => {
   }
 });
 
-/* FIX: Fungsi untuk mengatur input internal D-Pad */
-function handleInternalInput(direction){
+/* FIX: Fungsi untuk mengatur input internal D-Pad/Keyboard */
+function handleGameInput(direction){
   if(direction && typeof direction === "string"){
     pacman.next = direction.toLowerCase();
-    
-    // Opsional: Tetap kirim pesan ke parent hanya jika Anda ingin parent
-    // (index.html) tahu arah pergerakan terbaru untuk tujuan logging atau UI.
-    // Jika tidak perlu, HAPUS BARIS DI BAWAH.
-    // try{ parent.postMessage({ type: "mobileInput", direction }, "*"); }catch(e){}
   }
+  // Tidak perlu mengirim postMessage ke parent di sini karena tombol D-Pad ada di iframe
+  // dan hanya perlu mengubah state lokal (pacman.next).
 }
+
 
 /* INPUT HANDLERS - gated by allowLocalPlay */
 document.querySelectorAll("#mobileControls button").forEach(btn=>{
@@ -426,13 +424,14 @@ document.querySelectorAll("#mobileControls button").forEach(btn=>{
       setTimeout(()=> gm.style.display = "none", 1200);
       return;
     }
-    // FIX: Langsung panggil fungsi internal yang mengatur pacman.next
-    handleInternalInput(dir); 
+    // FIX: Langsung panggil fungsi internal
+    handleGameInput(dir); 
   };
   const end = (ev) => {
     ev.preventDefault();
     btn.style.transform = "";
   };
+  // FIX: Menggunakan passive:false pada touchstart sangat penting untuk preventDefault
   btn.addEventListener("touchstart", start, {passive:false});
   btn.addEventListener("mousedown", start);
   btn.addEventListener("touchend", end);
@@ -451,8 +450,7 @@ window.addEventListener("keydown", (e)=>{
       return;
     }
     // FIX: Gunakan fungsi yang sama untuk pergerakan keyboard
-    handleInternalInput(dir);
-    // Hapus baris parent.postMessage di sini juga jika tidak diperlukan.
+    handleGameInput(dir);
   }
 });
 
