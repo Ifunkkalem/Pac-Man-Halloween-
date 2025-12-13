@@ -209,7 +209,7 @@ iframe {
 
   <div id="sidebar">
     <button id="btnConnect">Connect Wallet</button>
-    <div style="display:flex; flex-direction:column; justify-content:center; flex-shrink: 0;">
+    <button id="btnHome">Home</button> <div style="display:flex; flex-direction:column; justify-content:center; flex-shrink: 0;">
         <div id="walletAddr" title="Wallet address">Wallet: -</div>
         <div id="walletBal" title="Native balance">SOMI: -</div>
     </div>
@@ -254,6 +254,7 @@ iframe {
 const btnConnect = document.getElementById('btnConnect');
 const btnPlay = document.getElementById('btnPlay');
 const btnLeaderboard = document.getElementById('btnLeaderboard');
+const btnHome = document.getElementById('btnHome'); // DITAMBAHKAN: Elemen tombol Home
 const walletAddrEl = document.getElementById('walletAddr');
 const walletBalEl = document.getElementById('walletBal');
 const gameFrame = document.getElementById('gameFrame');
@@ -315,8 +316,16 @@ overlayStart.addEventListener('click', (ev)=>{
   requestStartGame();
 });
 
+// DITAMBAHKAN: Listener untuk tombol Home
+btnHome.addEventListener('click', ()=>{
+  showMain('logoPlaceholder'); // Kembali ke tampilan Logo/Poster
+});
+
+
 // Leaderboard shows iframe
 btnLeaderboard.addEventListener('click', ()=>{
+  // Agar Leaderboard selalu refresh saat dibuka
+  leaderFrame.src = "leaderboard.html?" + Date.now(); 
   showMain('leaderFrame');
 });
 
@@ -347,6 +356,21 @@ window.addEventListener('message', (ev)=>{
       walletBalEl.textContent = d.balance + ' SOMI';
       walletBalEl.title = d.balance + ' SOMI';
     }
+  }
+
+  // DITAMBAHKAN: Listener untuk data Jackpot/Top Score dari app.js
+  if(d.type === 'updateSummary'){
+      const poolEl = document.getElementById('poolValue');
+      const scoreEl = document.getElementById('topScoreValue');
+      
+      if (d.jackpot && poolEl) poolEl.textContent = d.jackpot + ' SOMI';
+      if (d.topScore && scoreEl) scoreEl.textContent = d.topScore;
+  }
+  
+  // DITAMBAHKAN: Listener untuk navigasi otomatis ke Leaderboard setelah submit skor
+  if(d.type === 'showLeaderboard'){
+      leaderFrame.src = "leaderboard.html?" + Date.now(); // Force refresh
+      showMain('leaderFrame'); // Pindah ke tampilan Leaderboard
   }
 
   if(d.type === 'startFee'){
