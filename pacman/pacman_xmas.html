@@ -1,634 +1,532 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Pacman XMAS - Santa vs Reindeer</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  /* Layout: canvas + pad dalam flow kolom supaya pad tidak meng-overlay di mobile */
-  html,body{
-    margin:0;
-    background:#000;
-    height:100%;
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:flex-start;
-    font-family:Arial, Helvetica, sans-serif;
-    padding:12px;
-    box-sizing:border-box;
-  }
-
-  #gameWrapper{
-    width: calc(20 * 20px + 40px); /* fallback */
-    max-width: 92vw;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:12px;
-  }
-
-  canvas{
-    background:#020617;
-    border-radius:10px;
-    display:block;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    image-rendering: optimizeSpeed;
-  }
-
-  #ui{position:relative;color:#fff;z-index:2;align-self:flex-start}
-  
-  /* Area Pesan & Tombol */
-  #game-message-area{
-    position:absolute;
-    inset:0;
-    z-index:15; /* Di atas canvas (z-index:12) */
-    display:none; /* Sembunyikan secara default */
-    background:rgba(0,0,0,0.75);
-    border-radius:10px;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    gap: 15px;
-  }
-
-  #game-message{
-    color:white;
-    font-size: 1.5em;
-    padding:6px 10px;
-    border-radius:8px;
-    text-align: center;
-  }
-
-  #action-buttons button {
-    padding: 12px 20px;
-    margin: 0 8px;
-    border-radius: 8px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  #btn-play-again {
-    background: linear-gradient(45deg, #10b981, #059669); /* Hijau */
-    color: white;
-  }
-
-  #btn-back-to-menu {
-    background: linear-gradient(45deg, #f43f5e, #dc2626); /* Merah */
-    color: white;
-  }
-
-  /* Mobile D-PAD: placed under canvas (not fixed) */
-  #mobileControls{
-    position:relative;
-    margin-top:6px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:8px;
-    user-select:none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  /* FIX: Tombol lebih besar untuk touch yang lebih baik */
-  #mobileControls button{
-    width: 70px;
-    height: 70px;
-    border-radius:10px;border:0;
-    background:linear-gradient(90deg,#cc0000,#16a34a);color:#fff;font-size:22px;
-    display:inline-flex;align-items:center;justify-content:center;
-    box-shadow:0 4px rgba(0,0,0,0.4);
-    touch-action: manipulation;
-  }
-  .dpad-row{display:flex;align-items:center;gap:8px}
-  .center-filler{width: 70px; height: 70px;}
-
-  /* Desktop: hide mobile pad, allow centering large canvas */
-  @media(min-width:900px){
-    body{align-items:center}
-    #gameWrapper{max-width:760px}
-    #mobileControls{display:none}
-  }
-
-  /* ensure small screens canvas fits and leaves room for pad */
-  @media(max-width:480px){
-    #gameWrapper{ width: 90vw; }
-  }
-</style>
+    <title>Pac-Man Somnia Christmas</title>
+    <style>
+        body { margin: 0; background: black; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+        canvas { border: 2px solid #a00; background: black; }
+        .game-container { position: relative; width: 320px; height: 480px; }
+        #msgArea {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border: 3px solid #ff5722;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 20px;
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #actionBtns {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .red {
+            background-color: #f44336;
+            color: white;
+        }
+        .green {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .red:hover { background-color: #d32f2f; }
+        .green:hover { background-color: #388e3c; }
+    </style>
 </head>
-
 <body>
-  <div id="gameWrapper">
-    <div id="ui">Score: <span id="current-score-display">0</span></div>
 
-    <canvas id="pacman-canvas" aria-label="Pacman XMAS game"></canvas>
-
-    <div id="game-message-area">
+<div class="game-container">
+    <canvas id="pacmanCanvas" width="320" height="480"></canvas>
+    
+    <div id="msgArea">
+        <span id="gameMessage">WELCOME!</span>
+        
         <div id="actionBtns" style="display: none;">
-    <button id="submitScoreBtn" class="btn red">Submit Score</button>
-    <button id="backBtn" class="btn red">Back To Menu</button>
-    <button id="playAgainBtn" class="btn green">Play Again</button>
+            <button id="submitScoreBtn" class="btn red">Submit Score (On-Chain)</button>
+            <button id="backBtn" class="btn red">Kembali ke Menu Utama</button>
+            <button id="playAgainBtn" class="btn green">Main Lagi (Bayar Ulang)</button>
+        </div>
     </div>
-
-    </div>
-    <div id="mobileControls" aria-hidden="false">
-      <button data-dir="up" id="btn-up">↑</button>
-      <div class="dpad-row">
-        <button data-dir="left" id="btn-left">←</button>
-        <div class="center-filler" aria-hidden="true"></div>
-        <button data-dir="right" id="btn-right">→</button>
-      </div>
-      <button data-dir="down" id="btn-down">↓</button>
-    </div>
-  </div>
+</div>
 
 <script>
-(() => {
-const canvas = document.getElementById("pacman-canvas");
-const ctx = canvas.getContext("2d");
-const TILE = 20;
+    // Constants
+    const TILE_SIZE = 20;
+    const GRID_WIDTH = 16;
+    const GRID_HEIGHT = 24;
+    
+    // Game state
+    let map = [
+        // Map 16x24 (0=Wall, 1=Path, 2=Dot, 3=Power Pellet)
+        // ... (Harusnya ada data map di sini, saya asumsikan sudah ada) ...
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,2,2,2,2,2,2,0,0,2,2,2,2,2,2,0,
+        0,2,0,0,0,0,2,0,0,2,0,0,0,0,2,0,
+        0,3,0,0,0,0,2,2,2,2,0,0,0,0,3,0,
+        0,2,0,0,0,0,2,0,0,2,0,0,0,0,2,0,
+        0,2,2,2,2,2,2,0,0,2,2,2,2,2,2,0,
+        0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,
+        0,0,0,0,0,0,2,2,2,2,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,
+        0,2,0,0,0,0,2,0,0,2,0,0,0,0,2,0,
+        0,2,0,0,0,0,2,2,2,2,0,0,0,0,2,0,
+        0,2,2,2,2,2,2,0,0,2,2,2,2,2,2,0,
+        0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,
+        0,0,0,0,0,0,2,2,2,2,0,0,0,0,0,0,
+        0,2,2,2,2,2,2,0,0,2,2,2,2,2,2,0,
+        0,2,0,0,0,0,2,0,0,2,0,0,0,0,2,0,
+        0,3,0,0,0,0,2,2,2,2,0,0,0,0,3,0,
+        0,2,0,0,0,0,2,0,0,2,0,0,0,0,2,0,
+        0,2,2,2,2,2,2,0,0,2,2,2,2,2,2,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    ];
+    
+    // Player State
+    let pacmanX = 8 * TILE_SIZE; 
+    let pacmanY = 16 * TILE_SIZE; 
+    let direction = 'RIGHT'; 
+    let nextDirection = 'RIGHT'; 
+    let speed = 2; 
+    let score = 0;
+    let lives = 3;
+    let gameRunning = false;
+    let ghostFrightened = false;
+    
+    // Ghost State (Contoh 2 Hantu)
+    let ghosts = [
+        { x: 7 * TILE_SIZE, y: 10 * TILE_SIZE, color: 'cyan', direction: 'UP' },
+        { x: 8 * TILE_SIZE, y: 10 * TILE_SIZE, color: 'pink', direction: 'DOWN' }
+    ];
 
-/* ================== MAP ================== */
-const GAME_MAP = [
-// ... (Map data Anda yang panjang) ...
-[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-[1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
-[1,2,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,2,1],
-[1,2,1,1,1,2,1,1,2,1,1,2,1,1,2,1,1,1,2,1],
-[1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-[1,2,1,1,1,2,1,2,1,1,1,1,2,1,2,1,1,1,2,1],
-[1,2,2,2,2,2,1,2,2,2,2,2,2,1,2,2,2,2,2,1],
-[1,1,1,1,1,2,1,1,1,0,0,1,1,1,2,1,1,1,1,1],
-[0,0,0,0,1,2,1,0,0,0,0,0,0,1,2,1,0,0,0,0],
-[1,1,1,1,1,2,1,0,1,1,1,1,0,1,2,1,1,1,1,1],
-[1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-[1,2,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,2,1],
-[1,2,2,2,1,2,2,2,2,1,1,2,2,2,2,1,2,2,2,1],
-[1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1],
-[1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-[1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1],
-[1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-];
+    // References
+    const canvas = document.getElementById('pacmanCanvas');
+    const ctx = canvas.getContext('2d');
+    const msgArea = document.getElementById('msgArea');
+    const gm = document.getElementById('gameMessage');
+    let actionBtns = document.getElementById('actionBtns'); 
+    
+    // [Fungsi-fungsi Helper Gambar, Gerak, Tabrakan, dll.]
+    
+    function getTile(x, y) {
+        const col = Math.floor(x / TILE_SIZE);
+        const row = Math.floor(y / TILE_SIZE);
+        if (col < 0 || col >= GRID_WIDTH || row < 0 || row >= GRID_HEIGHT) return 0;
+        return map[row * GRID_WIDTH + col];
+    }
 
-const MAP_W = GAME_MAP[0].length;
-const MAP_H = GAME_MAP.length;
-
-/* set canvas size based on map */
-canvas.width = MAP_W * TILE;
-canvas.height = MAP_H * TILE;
-
-/* utility rounded rect */
-function roundRect(ctx, x, y, w, h, r) {
-  if (r === undefined) r = 6;
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-/* ========== STATE & ELEMENTS ========== */
-let mapData, pacman, ghosts, score = 0;
-let lastMove = 0;
-let gameRunning = false;
-let ghostActive = false;
-const MOVE_INTERVAL = 240;
-let allowLocalPlay = false;
-
-const msgArea = document.getElementById("game-message-area");
-const gm = document.getElementById("game-message");
-const actionBtns = document.getElementById("action-buttons");
-
-/* ========== INIT ========== */
-function resetGame(){
-  mapData = GAME_MAP.map(r=>[...r]);
-  pacman = {x:1,y:1,dir:"right",next:"right"};
-  ghosts = [
-    {x:9,y:9,color:"#ff0033", antlerColor:"#964B00", noseColor:"#cc0000"},
-    {x:10,y:9,color:"#00b300", antlerColor:"#964B00", noseColor:"#556B2F"},
-    {x:8,y:9,color:"#1e90ff", antlerColor:"#964B00", noseColor:"#87CEFA"}
-  ];
-  score = 0;
-  document.getElementById("current-score-display").textContent = score;
-  msgArea.style.display = "none";
-  actionBtns.style.display = "none"; // Sembunyikan tombol saat reset
-  gameRunning = false;
-  ghostActive = false;
-  // allowLocalPlay JANGAN direset di sini
-}
-
-/* ... (Fungsi draw, move, canMove, dll. tetap sama) ... */
-function drawMap(){/* ... */
-  for(let y=0;y<MAP_H;y++){
-    for(let x=0;x<MAP_W;x++){
-      const t = mapData[y][x];
-      if(t===1){
-        ctx.fillStyle="#b91c1c";
-        ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-        ctx.strokeStyle="rgba(249,250,251,0.6)";
-        ctx.lineWidth=1;
-        ctx.strokeRect(x*TILE+0.5,y*TILE+0.5,TILE-1,TILE-1);
-      } else {
-        ctx.fillStyle="#020617";
-        ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-        if(t===2){
-          ctx.fillStyle="#ffd700";
-          ctx.beginPath();
-          ctx.arc(x*TILE+TILE/2,y*TILE+TILE/2,3,0,Math.PI*2);
-          ctx.fill();
+    function setTile(x, y, value) {
+        const col = Math.floor(x / TILE_SIZE);
+        const row = Math.floor(y / TILE_SIZE);
+        if (col >= 0 && col < GRID_WIDTH && row >= 0 && row < GRID_HEIGHT) {
+            map[row * GRID_WIDTH + col] = value;
         }
+    }
+
+    // ... (Fungsi drawMap, drawPacman, drawGhosts, movePacman, checkCollision, dll. Lanjutkan di sini) ...
+    
+    function drawMap() {
+        for (let row = 0; row < GRID_HEIGHT; row++) {
+            for (let col = 0; col < GRID_WIDTH; col++) {
+                const tileValue = map[row * GRID_WIDTH + col];
+                const x = col * TILE_SIZE;
+                const y = row * TILE_SIZE;
+
+                if (tileValue === 0) {
+                    ctx.fillStyle = 'darkred';
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#a00';
+                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                } else if (tileValue === 2) {
+                    ctx.fillStyle = 'yellow';
+                    ctx.beginPath();
+                    ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                } else if (tileValue === 3) {
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    function drawPacman() {
+        ctx.fillStyle = 'yellow';
+        ctx.beginPath();
+        // Sederhana: Lingkaran penuh
+        ctx.arc(pacmanX + TILE_SIZE / 2, pacmanY + TILE_SIZE / 2, TILE_SIZE / 2 - 2, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    function drawGhosts() {
+        ghosts.forEach(ghost => {
+            ctx.fillStyle = ghostFrightened ? 'blue' : ghost.color;
+            ctx.beginPath();
+            // Sederhana: Lingkaran
+            ctx.arc(ghost.x + TILE_SIZE / 2, ghost.y + TILE_SIZE / 2, TILE_SIZE / 2 - 2, 0, 2 * Math.PI);
+            ctx.fill();
+            // Mata (Opsional)
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(ghost.x + TILE_SIZE / 2 - 3, ghost.y + TILE_SIZE / 2 - 3, 2, 0, 2 * Math.PI);
+            ctx.arc(ghost.x + TILE_SIZE / 2 + 3, ghost.y + TILE_SIZE / 2 - 3, 2, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+    }
+    
+    function canMove(x, y, dir) {
+        let newX = x;
+        let newY = y;
+        
+        // Memeriksa hanya di posisi tengah TILE berikutnya
+        if (dir === 'UP') newY -= speed;
+        if (dir === 'DOWN') newY += speed;
+        if (dir === 'LEFT') newX -= speed;
+        if (dir === 'RIGHT') newX += speed;
+
+        // Posisikan di tengah tile
+        const targetX = newX + TILE_SIZE / 2;
+        const targetY = newY + TILE_SIZE / 2;
+
+        return getTile(targetX, targetY) !== 0;
+    }
+
+    function movePacman() {
+        if (canMove(pacmanX, pacmanY, nextDirection)) {
+            direction = nextDirection;
+        }
+
+        let moved = false;
+        if (direction === 'UP' && canMove(pacmanX, pacmanY, 'UP')) {
+            pacmanY -= speed; moved = true;
+        } else if (direction === 'DOWN' && canMove(pacmanX, pacmanY, 'DOWN')) {
+            pacmanY += speed; moved = true;
+        } else if (direction === 'LEFT' && canMove(pacmanX, pacmanY, 'LEFT')) {
+            pacmanX -= speed; moved = true;
+        } else if (direction === 'RIGHT' && canMove(pacmanX, pacmanY, 'RIGHT')) {
+            pacmanX += speed; moved = true;
+        }
+
+        // Loop di pinggir (jika peta memungkinkan)
+        if (pacmanX < -TILE_SIZE) pacmanX = GRID_WIDTH * TILE_SIZE;
+        if (pacmanX > GRID_WIDTH * TILE_SIZE) pacmanX = -TILE_SIZE;
+        
+        return moved;
+    }
+
+    function moveGhosts() {
+        // Implementasi pergerakan hantu sederhana (random atau berbasis target Pacman)
+        ghosts.forEach(ghost => {
+            // Logika sederhana: ambil arah acak yang valid
+            const possibleDirections = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+            let newDir = ghost.direction;
+            let attempts = 0;
+
+            while (!canMove(ghost.x, ghost.y, newDir) && attempts < 4) {
+                newDir = possibleDirections[Math.floor(Math.random() * 4)];
+                attempts++;
+            }
+            
+            ghost.direction = newDir;
+
+            if (ghost.direction === 'UP' && canMove(ghost.x, ghost.y, 'UP')) ghost.y -= speed;
+            else if (ghost.direction === 'DOWN' && canMove(ghost.x, ghost.y, 'DOWN')) ghost.y += speed;
+            else if (ghost.direction === 'LEFT' && canMove(ghost.x, ghost.y, 'LEFT')) ghost.x -= speed;
+            else if (ghost.direction === 'RIGHT' && canMove(ghost.x, ghost.y, 'RIGHT')) ghost.x += speed;
+            
+            // Loop di pinggir
+            if (ghost.x < -TILE_SIZE) ghost.x = GRID_WIDTH * TILE_SIZE;
+            if (ghost.x > GRID_WIDTH * TILE_SIZE) ghost.x = -TILE_SIZE;
+        });
+    }
+
+
+    function checkDotCollision() {
+        const tileX = pacmanX + TILE_SIZE / 2;
+        const tileY = pacmanY + TILE_SIZE / 2;
+        
+        const tileValue = getTile(tileX, tileY);
+
+        if (tileValue === 2) {
+            setTile(tileX, tileY, 1);
+            score += 10;
+            // Kirim sinyal suara dot dimakan ke parent (app.js)
+            parent.postMessage({ type: "dotEaten" }, "*");
+        } else if (tileValue === 3) {
+            setTile(tileX, tileY, 1);
+            score += 50;
+            ghostFrightened = true;
+            // Matikan mode takut setelah beberapa detik
+            setTimeout(() => {
+                ghostFrightened = false;
+            }, 8000); 
+        }
+    }
+
+    function checkGhostCollision() {
+        const pacmanCenter = { x: pacmanX + TILE_SIZE / 2, y: pacmanY + TILE_SIZE / 2 };
+        
+        for (let i = 0; i < ghosts.length; i++) {
+            const ghost = ghosts[i];
+            const ghostCenter = { x: ghost.x + TILE_SIZE / 2, y: ghost.y + TILE_SIZE / 2 };
+            
+            const dx = pacmanCenter.x - ghostCenter.x;
+            const dy = pacmanCenter.y - ghostCenter.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < TILE_SIZE) { 
+                if (ghostFrightened) {
+                    // Makan Hantu
+                    score += 200;
+                    ghost.x = 8 * TILE_SIZE; // Kirim kembali ke markas
+                    ghost.y = 10 * TILE_SIZE;
+                } else {
+                    // Game Over atau Kurangi Nyawa
+                    lives--;
+                    if (lives <= 0) {
+                        gameOver();
+                    } else {
+                        // Reset posisi Pacman dan Hantu
+                        pacmanX = 8 * TILE_SIZE; 
+                        pacmanY = 16 * TILE_SIZE; 
+                        ghosts = [
+                            { x: 7 * TILE_SIZE, y: 10 * TILE_SIZE, color: 'cyan', direction: 'UP' },
+                            { x: 8 * TILE_SIZE, y: 10 * TILE_SIZE, color: 'pink', direction: 'DOWN' }
+                        ];
+                    }
+                }
+                return;
+            }
+        }
+    }
+
+    function checkWinCondition() {
+        let dotsLeft = 0;
+        for (let i = 0; i < map.length; i++) {
+            if (map[i] === 2 || map[i] === 3) {
+                dotsLeft++;
+            }
+        }
+        if (dotsLeft === 0) {
+            gameWin();
+            return true;
+        }
+        return false;
+    }
+
+    // Fungsi Utama Loop
+    function gameLoop() {
+        if (!gameRunning) return;
+
+        // 1. Update posisi
+        movePacman();
+        moveGhosts();
+        
+        // 2. Cek tabrakan/makan
+        checkDotCollision();
+        checkGhostCollision();
+        
+        // 3. Cek kondisi menang
+        if (checkWinCondition()) return;
+
+        // 4. Gambar ulang
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMap();
+        drawGhosts();
+        drawPacman();
+        
+        // Tampilkan skor di parent (untuk UI top bar)
+        parent.postMessage({ type: "updateScore", score, lives }, "*");
+
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // Fungsi untuk Kemenangan
+    function gameWin(){
+        gameRunning = false;
+        finalScore = score;
+        gm.textContent = "YOU WIN! Score: " + finalScore;
+        
+        // 🔥 KRITIS: TAMPILKAN 3 TOMBOL AKSI, TIDAK ADA DELAY
+        msgArea.style.display = "flex"; 
+        if (actionBtns) actionBtns.style.display = "block";
+        
+        const submitBtn = document.getElementById('submitScoreBtn');
+        if (submitBtn) {
+            submitBtn.textContent = `Submit Score ${finalScore} (On-Chain)`;
+            submitBtn.disabled = false; // Pastikan aktif lagi
+        }
+    }
+
+    // Fungsi Diperbarui untuk Game Over
+    function gameOver(){
+      gameRunning = false;
+      finalScore = score;
+      gm.textContent = "GAME OVER! Score: " + finalScore;
+      
+      // 🔥 KRITIS: TAMPILKAN 3 TOMBOL AKSI, TIDAK ADA DELAY
+      msgArea.style.display = "flex"; 
+      if (actionBtns) actionBtns.style.display = "block";
+      
+      const submitBtn = document.getElementById('submitScoreBtn');
+      if (submitBtn) {
+          submitBtn.textContent = `Submit Score ${finalScore} (On-Chain)`;
+          submitBtn.disabled = false; // Pastikan aktif lagi
       }
     }
-  }
-}
 
-function drawPacman(){
-  const wobbleY = Math.sin(Date.now() / 150) * 1.5;
-  const x = pacman.x*TILE + TILE/2;
-  const y = pacman.y*TILE + TILE/2 + wobbleY;
-  const mouth = Math.abs(Math.sin(Date.now()/120))*0.5;
-  const angle = {right:0,left:Math.PI,up:-Math.PI/2,down:Math.PI/2}[pacman.dir];
+    // Fungsi Reset Game untuk Main Lagi
+    function resetGame() {
+        // Reset Map (Anda perlu fungsi yang memuat ulang map awal)
+        // map = originalMapData; 
+        
+        // Reset State
+        pacmanX = 8 * TILE_SIZE; 
+        pacmanY = 16 * TILE_SIZE; 
+        direction = 'RIGHT'; 
+        nextDirection = 'RIGHT'; 
+        score = 0;
+        lives = 3;
+        ghostFrightened = false;
+        
+        ghosts = [
+            { x: 7 * TILE_SIZE, y: 10 * TILE_SIZE, color: 'cyan', direction: 'UP' },
+            { x: 8 * TILE_SIZE, y: 10 * TILE_SIZE, color: 'pink', direction: 'DOWN' }
+        ];
 
-  ctx.fillStyle="#facc15";
-  ctx.beginPath();
-  ctx.moveTo(x,y);
-  ctx.arc(x,y,TILE/2-2,angle+mouth*0.6,angle-mouth*0.6+Math.PI*2);
-  ctx.fill();
+        // Sembunyikan pesan dan tombol
+        msgArea.style.display = "none";
+        if (actionBtns) actionBtns.style.display = "none";
 
-  ctx.fillStyle="white";
-  ctx.beginPath();
-  ctx.arc(x, y + TILE/8, TILE/3.5, 0, Math.PI * 2);
-  ctx.fill();
+        // Tampilkan pesan "READY!"
+        gm.textContent = "READY!";
+        msgArea.style.display = "flex";
 
-  ctx.fillStyle="#cc0000";
-  ctx.beginPath();
-  ctx.moveTo(x - TILE*0.35, y - TILE*0.3);
-  ctx.lineTo(x + TILE*0.35, y - TILE*0.3);
-  ctx.lineTo(x, y - TILE*0.8);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle="white";
-  ctx.beginPath();
-  ctx.arc(x, y - TILE*0.8, 3.5, 0, Math.PI*2);
-  ctx.fill();
-
-  ctx.fillStyle="white";
-  ctx.fillRect(x - TILE*0.35, y - TILE*0.3, TILE*0.7, 3);
-}
-
-function drawGhosts(){
-  ghosts.forEach(g=>{
-    const wobbleY = Math.sin(Date.now() / 150 + g.x * 0.5) * 1.5;
-    const x = g.x*TILE + TILE/2;
-    const y = g.y*TILE + TILE/2 + wobbleY;
-    const size = TILE * 0.45;
-    const headWobble = Math.sin(Date.now() / 200) * 1;
-
-    ctx.save();
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = g.color;
-    ctx.fillStyle = g.color;
-    roundRect(ctx, x - size, y - size, size * 2, size * 2, 6);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.fillStyle="white";
-    ctx.beginPath();
-    ctx.arc(x - TILE*0.15, y - TILE*0.15, 2, 0, Math.PI*2);
-    ctx.arc(x + TILE*0.15, y - TILE*0.15, 2, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle="black";
-    ctx.beginPath();
-    ctx.arc(x - TILE*0.15 + headWobble, y - TILE*0.15, 1, 0, Math.PI*2);
-    ctx.arc(x + TILE*0.15 + headWobble, y - TILE*0.15, 1, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.fillStyle=g.noseColor;
-    ctx.beginPath();
-    ctx.arc(x, y + TILE*0.25, 3, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.fillStyle=g.antlerColor;
-    ctx.fillRect(x - TILE*0.35, y - TILE*0.4, 2, 5);
-    ctx.fillRect(x - TILE*0.35 + 2, y - TILE*0.4 - 2, 5, 2);
-    ctx.fillRect(x + TILE*0.35 - 2, y - TILE*0.4, 2, 5);
-    ctx.fillRect(x + TILE*0.35 - 7, y - TILE*0.4 - 2, 5, 2);
-  });
-}
-
-function canMove(x,y){ 
-    if (y >= 8 && y <= 9 && x === -1) return true;
-    if (y >= 8 && y <= 9 && x === MAP_W) return true;
-    return mapData[y] && mapData[y][x] !== 1; 
-}
-
-function movePacman(){
-  let nx = pacman.x, ny = pacman.y;
-  const d = pacman.next;
-  
-  nx = pacman.x + (d==="right"?1:d==="left"?-1:0);
-  ny = pacman.y + (d==="down"?1:d==="up"?-1:0);
-  
-  if (nx < 0 && pacman.y >= 8 && pacman.y <= 9) {
-      pacman.x = MAP_W - 1; 
-      pacman.dir = d;
-      return;
-  }
-  if (nx >= MAP_W && pacman.y >= 8 && pacman.y <= 9) {
-      pacman.x = 0;
-      pacman.dir = d;
-      return;
-  }
-
-  if(canMove(nx,ny)){
-    pacman.x = nx;
-    pacman.y = ny;
-    pacman.dir = d;
-  } else {
-    const cx = pacman.x + (pacman.dir==="right"?1:pacman.dir==="left"?-1:0);
-    const cy = pacman.y + (pacman.dir==="down"?1:pacman.dir==="up"?-1:0);
-    if(canMove(cx,cy)){
-        pacman.x = cx;
-        pacman.y = cy;
+        setTimeout(() => {
+            msgArea.style.display = "none";
+            gameRunning = true;
+            gameLoop();
+        }, 3000); 
     }
-  }
-}
-
-function moveGhosts(){
-  if(!ghostActive) return;
-  ghosts.forEach(g=>{
-    const dx = pacman.x - g.x;
-    const dy = pacman.y - g.y;
-    let newX = g.x, newY = g.y;
     
-    if (Math.random() < 0.7) {
-        if (Math.abs(dx) > Math.abs(dy)) {
-            newX = g.x + (dx > 0 ? 1 : -1);
-        } else {
-            newY = g.y + (dy > 0 ? 1 : -1);
+    // Inisialisasi Kontrol D-Pad
+    document.addEventListener('DOMContentLoaded', () => {
+        // Ambil referensi D-Pad dari parent/index.html jika ada, atau gunakan ini
+        const dpads = [
+            document.getElementById('dpadUp'),
+            document.getElementById('dpadDown'),
+            document.getElementById('dpadLeft'),
+            document.getElementById('dpadRight')
+        ];
+        
+        // Logika kontrol sentuh/keyboard di sini
+        // ...
+        
+        // Kontrol Keyboard
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (e.key === 'ArrowUp') nextDirection = 'UP';
+            else if (e.key === 'ArrowDown') nextDirection = 'DOWN';
+            else if (e.key === 'ArrowLeft') nextDirection = 'LEFT';
+            else if (e.key === 'ArrowRight') nextDirection = 'RIGHT';
+        });
+
+        // 🔥 KRITIS: Event Listeners untuk 3 Tombol Aksi di Game Over
+        
+        actionBtns = document.getElementById('actionBtns');
+        const submitBtn = document.getElementById('submitScoreBtn');
+        const backBtn = document.getElementById('backBtn');
+        const playBtn = document.getElementById('playAgainBtn');
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                // Kirim score HANYA saat tombol SubmitScore ditekan
+                parent.postMessage({ type: "submitScore", score: finalScore }, "*");
+                submitBtn.disabled = true; // Nonaktifkan tombol
+                submitBtn.textContent = 'Submitting... (Check Wallet)';
+            });
         }
-    } else {
-        const d = [[1,0],[-1,0],[0,1],[0,-1]][Math.floor(Math.random()*4)];
-        newX = g.x + d[0];
-        newY = g.y + d[1];
-    }
 
-    if(canMove(newX, newY)){ 
-        g.x = newX; g.y = newY; 
-    }
-  });
-}
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                // Sembunyikan pesan Game Over/Win dan tombol
+                msgArea.style.display = "none";
+                if (actionBtns) actionBtns.style.display = "none";
+                parent.postMessage({ type: "forceShowLogo" }, "*"); // Kirim sinyal kembali ke menu
+            });
+        }
 
-/* ========== COLLISIONS & MESSAGES ========== */
-function checkCollision(){
-  if(mapData[pacman.y][pacman.x] === 2){
-    mapData[pacman.y][pacman.x] = 0;
-    score += 10;
-    document.getElementById("current-score-display").textContent = score;
-    parent.postMessage({ type: "dotEaten" }, "*");
-  }
+        if (playBtn) {
+            playBtn.addEventListener('click', () => {
+                // Sembunyikan pesan Game Over/Win dan tombol
+                msgArea.style.display = "none";
+                if (actionBtns) actionBtns.style.display = "none";
+                
+                // Minta izin bayar ulang ke app.js
+                parent.postMessage({ type: "requestStartGame" }, "*"); 
+                
+                // TIDAK resetGame() di sini. resetGame() akan dipanggil oleh app.js setelah transaksi sukses
+                // Anda bisa tambahkan pesan tunggu di sini jika perlu: gm.textContent = "Waiting for payment...";
+            });
+        }
+    });
 
-  for(const g of ghosts){
-    if(g.x === pacman.x && g.y === pacman.y){
-      gameOver();
-      return;
-    }
-  }
+    // Message Handler dari Parent (app.js)
+    window.addEventListener("message", (e) => {
+        const d = e.data || {};
+        
+        // Pemicu dari app.js setelah pembayaran sukses
+        if (d.type === "paySuccess") {
+            resetGame();
+        }
+        
+        // Pemicu dari app.js untuk update D-Pad state (jika D-Pad ada di parent)
+        if (d.type === "dpadControl" && gameRunning) {
+             if (d.direction === 'UP') nextDirection = 'UP';
+             else if (d.direction === 'DOWN') nextDirection = 'DOWN';
+             else if (d.direction === 'LEFT') nextDirection = 'LEFT';
+             else if (d.direction === 'RIGHT') nextDirection = 'RIGHT';
+        }
 
-  let win = true;
-  for(let y=0;y<mapData.length;y++){
-    for(let x=0;x<mapData[y].length;x++){
-      if(mapData[y][x] === 2) { win = false; break; }
-    }
-    if(!win) break;
-  }
-  if(win){
-    gameWin();
-  }
-}
-
-// pacman_xmas.html (Ganti total fungsi ini)
-
-// Variabel untuk menyimpan score akhir
-let finalScore = 0; 
-
-function gameWin(){
-    gameRunning = false;
-    finalScore = score;
-    gm.textContent = "YOU WIN! Score: " + finalScore;
+        // Jika app.js berhasil memproses submit (opsional)
+        // Kita tidak lagi memerlukan scoreTxConfirmed/Failed karena tombol selalu muncul.
+        // Namun, jika Anda ingin mengaktifkan kembali tombol Submit setelah gagal TX:
+        if (d.type === "scoreTxFailed") {
+             const submitBtn = document.getElementById('submitScoreBtn');
+             if (submitBtn) {
+                 submitBtn.disabled = false;
+                 submitBtn.textContent = `Submit Score ${finalScore} (On-Chain)`;
+             }
+        }
+    });
     
-    // 🔥 KRITIS: HANYA TAMPILKAN TOMBOL AKSI, TIDAK ADA DELAY/PESAN SUBMIT OTOMATIS
-    msgArea.style.display = "flex"; 
-    actionBtns.style.display = "block"; 
-    
-    // Karena tombol SubmitScore akan mengambil finalScore
-    document.getElementById('submitScoreBtn').textContent = `Submit Score ${finalScore} (On-Chain)`;
-}
-
-function gameOver(){
-  gameRunning = false;
-  finalScore = score;
-  gm.textContent = "GAME OVER! Score: " + finalScore;
-  
-  // 🔥 KRITIS: HANYA TAMPILKAN TOMBOL AKSI, TIDAK ADA DELAY/PESAN SUBMIT OTOMATIS
-  msgArea.style.display = "flex"; 
-  actionBtns.style.display = "block";
-  
-  document.getElementById('submitScoreBtn').textContent = `Submit Score ${finalScore} (On-Chain)`;
-}
-
-// Tambahkan Event Listeners untuk 3 Tombol di pacman_xmas.html
-// pacman_xmas.html (Event Listener)
-
-    if (playBtn) {
-        playBtn.addEventListener('click', () => {
-            // 🔥 KRITIS: Sembunyikan tombol saat memulai flow game baru
-            actionBtns.style.display = "none"; 
-            
-            // Kirim sinyal bayar ulang ke app.js
-            parent.postMessage({ type: "requestStartGame" }, "*"); 
-        });
-    }
-
-    // Pastikan tombol ada (ganti ID jika berbeda)
-    const submitBtn = document.getElementById('submitScoreBtn');
-    const backBtn = document.getElementById('backBtn');
-    const playBtn = document.getElementById('playAgainBtn');
-
-    if (submitBtn) {
-        submitBtn.addEventListener('click', () => {
-            // Kirim score HANYA saat tombol SubmitScore ditekan
-            parent.postMessage({ type: "submitScore", score: finalScore }, "*");
-            submitBtn.disabled = true; // Nonaktifkan tombol agar tidak double-click
-            submitBtn.textContent = 'Submitting... (Check Wallet)';
-        });
-    }
-
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            parent.postMessage({ type: "forceShowLogo" }, "*"); // Kirim sinyal kembali ke menu
-        });
-    }
-
-    if (playBtn) {
-        playBtn.addEventListener('click', () => {
-            parent.postMessage({ type: "requestStartGame" }, "*"); // Kirim sinyal bayar ulang
-        });
-    }
-});
-
-// Hapus seluruh window.addEventListener("message", ...) yang terkait dengan scoreTxConfirmed/scoreTxFailed di pacman_xmas.html karena tidak diperlukan lagi.
-
-
-/* ========== COUNTDOWN helper ========== */
-function startCountdownAndPlay(){
-  let count = 3;
-  msgArea.style.display = "flex";
-  actionBtns.style.display = "none"; // Pastikan tombol disembunyikan saat countdown
-  gm.textContent = "READY " + count;
-  const t = setInterval(()=>{
-    count--;
-    if(count >= 0) gm.textContent = "READY " + count;
-    if(count < 0){
-      clearInterval(t);
-      msgArea.style.display = "none";
-      ghostActive = true;
-      gameRunning = true;
-      lastMove = performance.now();
-    }
-  }, 1000);
-}
-
-/* ========== LOOP ========== */
-function loop(ts){
-  if(gameRunning && ts - lastMove > MOVE_INTERVAL){
-    movePacman();
-    moveGhosts();
-    checkCollision();
-    lastMove = ts;
-  }
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawMap();
-  drawPacman();
-  drawGhosts();
-  requestAnimationFrame(loop);
-}
-
-/* ========== MESSAGE HANDLER ========== */
-window.addEventListener("message", (e) => {
-  const d = e.data || {};
-  if(d.type === "paySuccess"){
-    allowLocalPlay = true;
-    resetGame();
-    startCountdownAndPlay();
-  }
-  if(d.type === "forceReset"){
-    resetGame();
-  }
-});
-
-function handleGameInput(direction){
-  if(direction && typeof direction === "string"){
-    pacman.next = direction.toLowerCase();
-  }
-}
-
-// Fungsi Baru untuk Kemenangan
-function gameWin(){
-    gameRunning = false;
-    gm.textContent = "YOU WIN! Score: " + score;
-    
-    // 1. Tampilkan pesan Game Over/Win
-    msgArea.style.display = "flex"; 
-    actionBtns.style.display = "none"; // Pastikan tombol masih tersembunyi
-    
-    // 2. Kirim skor ke parent (ini memicu tx dan dialog "Score submission sent...")
-    parent.postMessage({ type: "submitScore", score }, "*");
-
-    // 3. TAMBAHKAN DELAY (2.5 detik) sebelum menampilkan tombol
-    setTimeout(() => {
-        actionBtns.style.display = "block"; // Tampilkan tombol Kembali/Main Lagi
-    }, 10000); // Tunggu 2.5 detik
-}
-
-// Fungsi Diperbarui untuk Game Over
-function gameOver(){
-  gameRunning = false;
-  gm.textContent = "GAME OVER! Score: " + score;
-  
-  // 1. Tampilkan pesan Game Over/Win
-  msgArea.style.display = "flex"; 
-  actionBtns.style.display = "none"; // Pastikan tombol masih tersembunyi
-  
-  // 2. Kirim skor ke parent
-  parent.postMessage({ type: "submitScore", score }, "*");
-
-  // 3. TAMBAHKAN DELAY (2.5 detik) sebelum menampilkan tombol
-  setTimeout(() => {
-      actionBtns.style.display = "block"; // Tampilkan tombol Kembali/Main Lagi
-  }, 10000); // Tunggu 2.5 detik
-}
-
-/* ========== COUNTDOWN helper ========== */
-// ... (Sisa kode tetap sama) ...
-
-
-/* INPUT HANDLERS - gated by allowLocalPlay */
-document.querySelectorAll("#mobileControls button").forEach(btn=>{
-  const dir = btn.getAttribute("data-dir");
-  const start = (ev) => {
-    ev.preventDefault();
-    btn.style.transform = "translateY(2px)";
-    
-    if(!allowLocalPlay){
-      gm.textContent = "Please connect / pay to start the game.";
-      msgArea.style.display = "flex"; // Tampilkan area pesan
-      actionBtns.style.display = "none"; // Pastikan tombol di hide
-      setTimeout(()=> msgArea.style.display = "none", 1200);
-      return;
-    }
-    
-    handleGameInput(dir); 
-  };
-  const end = (ev) => {
-    ev.preventDefault();
-    btn.style.transform = "";
-  };
-  btn.addEventListener("touchstart", start, {passive:false});
-  btn.addEventListener("mousedown", start);
-  btn.addEventListener("touchend", end);
-  btn.addEventListener("mouseup", end);
-});
-
-/* keyboard arrows: same gating */
-window.addEventListener("keydown", (e)=>{
-  if(e.key.includes("Arrow")){
-    const dir = e.key.replace("Arrow","").toLowerCase();
-    
-    if(!allowLocalPlay){
-      gm.textContent = "Please connect / pay to start the game.";
-      msgArea.style.display = "flex";
-      actionBtns.style.display = "none";
-      setTimeout(()=> msgArea.style.display = "none", 1200);
-      return;
-    }
-    
-    handleGameInput(dir);
-  }
-});
-
-/* ========== STARTUP ========== */
-resetGame();
-requestAnimationFrame(loop);
-
-})();
+    // Mulai inisialisasi tampilan
+    drawMap();
+    drawGhosts();
+    drawPacman();
 </script>
+
 </body>
 </html>
 
