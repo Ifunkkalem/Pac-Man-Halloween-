@@ -308,16 +308,44 @@ async function payToPlay() {
   }
 }
 
-// submit score on-chain
+// app.js
+
 async function submitScoreTx(score) {
-  if (!gameContract || !signer || !userAddress) {
-    alert("Please connect wallet before submitting score.");
-    return;
+    if (!contract) {
+        // Tampilkan pesan error jika contract belum terinisialisasi
+        showWaitingMessage("🚨 Error: Wallet not connected or contract failed to load.", 5000);
+        return false;
+    }
+    
+    // Asumsi: contract memiliki fungsi submitScore(uint256 score)
+    try {
+        // Tampilkan pesan konfirmasi wallet (opsional, jika tidak otomatis dari WalletConnect)
+        showWaitingMessage(`📝 Submitting Score ${score}... Please CONFIRM in your wallet.`, 0); // 0 = tidak hilang otomatis
+
+        const tx = await contract.submitScore(score); // Pemicu dialog konfirmasi wallet
+
+        // Tunggu hingga transaksi dikonfirmasi di jaringan
+        const receipt = await tx.wait(); 
+
+        // 🔥🔥🔥 KRITIS: Kirim sinyal konfirmasi balik ke iframe
+        gf.contentWindow.postMessage({ type: "scoreTxConfirmed" }, "*");
+        
+        showWaitingMessage(`✅ Score ${score} confirmed! TX: ${receipt.transactionHash.substring(0, 8)}...`, 4000);
+        
+        // Optional: Refresh Leaderboard/Pool
+        // fetchPoolValue();
+        
+        return true;
+    } catch (error) {
+        console.error("Score submission failed:", error);
+        // 🔥 KRITIS: Kirim sinyal kegagalan agar tombol muncul lebih cepat
+        gf.contentWindow.postMessage({ type: "scoreTxFailed" }, "*"); 
+        
+        showWaitingMessage(`❌ Score submission failed: ${error.message || 'Check console.'}`, 6000);
+        return false;
+    }
   }
-  if (!score || isNaN(Number(score)) || Number(score) <= 0) {
-    alert("Invalid score.");
-    return;
-  }
+
 
   try {
     // pause bgm
@@ -338,29 +366,25 @@ async function submitScoreTx(score) {
   }
 }
 
-// app.js (Check this section)
-
 // ---------------- MESSAGE HANDLER ----------------
+// app.js (modifikasi event listener)
+
 window.addEventListener("message", async (ev) => {
   const data = ev.data || {};
-  if (!data || typeof data !== "object") return;
 
-  // ... (Handlers lainnya seperti dotEaten, submitScore) ...
+  // ... (Handlers lainnya seperti requestConnectWallet, dotEaten, dll.) ...
 
-  if (data.type === "requestConnectWallet") {
-    await connectWallet();
+  // Dipicu saat Game Over/Win
+  if (data.type === "submitScore") {
+    const score = data.score;
+    // Panggil fungsi submitScore yang baru kita buat
+    await submitScoreTx(score);
     return;
   }
+  
+  // ... (Handlers lainnya seperti waitingForScoreTx, scoreTxConfirmed) ... 
+});
 
-  // Dipicu oleh tombol "Play Again" atau "Play Game" di menu utama
-  if (data.type === "requestStartGame") {
-    if (!signer) {
-      const ok = await connectWallet();
-      if (!ok) return;
-    }
-    await payToPlay();
-    return;
-  }
   
   // 🔥🔥🔥 BARU / KRITIS UNTUK TOMBOL KEMBALI 🔥🔥🔥
   // Dipicu oleh tombol "Kembali ke Menu Utama" dari game
