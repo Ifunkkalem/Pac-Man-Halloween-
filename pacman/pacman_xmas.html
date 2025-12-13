@@ -1,71 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Pac-Man Somnia Christmas</title>
-    <style>
-        body { margin: 0; background: black; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
-        canvas { border: 2px solid #a00; background: black; }
-        .game-container { position: relative; width: 320px; height: 480px; }
-        #msgArea {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 20px;
-            border: 3px solid #ff5722;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 20px;
-            z-index: 10;
-            display: none;
-            flex-direction: column;
-            gap: 15px;
-        }
-        #actionBtns {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .red {
-            background-color: #f44336;
-            color: white;
-        }
-        .green {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .red:hover { background-color: #d32f2f; }
-        .green:hover { background-color: #388e3c; }
-    </style>
+<meta charset="UTF-8">
+<title>Pacman XMAS - Santa vs Reindeer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  /* Layout: canvas + pad dalam flow kolom supaya pad tidak meng-overlay di mobile */
+  html,body{
+    margin:0;
+    background:#000;
+    height:100%;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    font-family:Arial, Helvetica, sans-serif;
+    padding:12px;
+    box-sizing:border-box;
+  }
+
+  #gameWrapper{
+    width: calc(20 * 20px + 40px); /* fallback */
+    max-width: 92vw;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+
+  canvas{
+    background:#020617;
+    border-radius:10px;
+    display:block;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    image-rendering: optimizeSpeed;
+  }
+
+  #ui{position:relative;color:#fff;z-index:2;align-self:flex-start}
+  #game-message{
+    color:white;
+    background:rgba(0,0,0,.6);
+    padding:6px 10px;
+    border-radius:8px;
+    display:none;
+    z-index:12;
+  }
+
+  /* Mobile D-PAD: placed under canvas (not fixed) */
+  #mobileControls{
+    position:relative;
+    margin-top:6px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    user-select:none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* FIX: Tombol lebih besar untuk touch yang lebih baik */
+  #mobileControls button{
+    width: 70px; /* Dulu 64px */
+    height: 70px; /* Dulu 64px */
+    border-radius:10px;border:0;
+    background:linear-gradient(90deg,#cc0000,#16a34a);color:#fff;font-size:22px;
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 4px rgba(0,0,0,0.4);
+    touch-action: manipulation;
+  }
+  .dpad-row{display:flex;align-items:center;gap:8px}
+  
+  /* FIX: Sesuaikan pengisi tengah dengan ukuran tombol yang baru */
+  .center-filler{width: 70px; height: 70px;}
+
+  /* Desktop: hide mobile pad, allow centering large canvas */
+  @media(min-width:900px){
+    body{align-items:center}
+    #gameWrapper{max-width:760px}
+    #mobileControls{display:none}
+  }
+
+  /* ensure small screens canvas fits and leaves room for pad */
+  @media(max-width:480px){
+    #gameWrapper{ width: 90vw; }
+  }
+</style>
 </head>
+
 <body>
+  <div id="gameWrapper">
+    <div id="ui">Score: <span id="current-score-display">0</span></div>
+    <div id="game-message"></div>
 
-<div class="game-container">
-    <canvas id="pacmanCanvas" width="320" height="480"></canvas>
-    
-    <div id="msgArea">
-        <span id="gameMessage">WELCOME!</span>
-        
-        <div id="actionBtns" style="display: none;">
-            <button id="submitScoreBtn" class="btn red">Submit Score (On-Chain)</button>
-            <button id="backBtn" class="btn red">Kembali ke Menu Utama</button>
-            <button id="playAgainBtn" class="btn green">Main Lagi (Bayar Ulang)</button>
-        </div>
+    <canvas id="pacman-canvas" aria-label="Pacman XMAS game"></canvas>
+
+    <div id="mobileControls" aria-hidden="false">
+      <button data-dir="up" id="btn-up">↑</button>
+      <div class="dpad-row">
+        <button data-dir="left" id="btn-left">←</button>
+        <div class="center-filler" aria-hidden="true"></div>
+        <button data-dir="right" id="btn-right">→</button>
+      </div>
+      <button data-dir="down" id="btn-down">↓</button>
     </div>
-</div>
-
-/* ... (Kode di atas tidak berubah) ... */
+  </div>
 
 <script>
 (() => {
@@ -471,4 +509,5 @@ requestAnimationFrame(loop);
 </script>
 </body>
 </html>
+
 
