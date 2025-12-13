@@ -224,13 +224,23 @@ async function submitScoreTx(score) {
 window.addEventListener("message", async (ev) => {
   const data = ev.data || {};
   if (!data || typeof data !== "object") return;
-
+  
+  if (data.type === 'requestGameStatus') {
+      // Merespons permintaan status dari iframe (pacman_xmas.html)
+window.postMessage({ 
+          type: 'gameStatusResponse', 
+          // Menggunakan 'signer' sebagai proxy: jika signer ada, anggap sudah siap bermain.
+          allowLocalPlay: !!signer 
+      }, ev.origin);
+    return;
+  }
+  
   if (data.type === "submitScore") {
     // Diterima dari pacman_xmas.html
     await submitScoreTx(data.score);
     return;
   }
-  
+
   if (data.type === "requestConnectWallet") {
     // Diterima dari btnConnect di index.html
     await connectWallet();
