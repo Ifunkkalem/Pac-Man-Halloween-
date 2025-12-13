@@ -308,34 +308,62 @@ async function payToPlay() {
   }
 }
 
-// submit score on-chain
-async function submitScoreTx(score) {
-  if (!gameContract || !signer || !userAddress) {
-    alert("Please connect wallet before submitting score.");
-    return;
-  }
-  if (!score || isNaN(Number(score)) || Number(score) <= 0) {
-    alert("Invalid score.");
-    return;
-  }
+// app.js (Fungsi submitScoreTx yang diperkuat)
 
-  try {
-    // pause bgm
-    if (backgroundMusic) { backgroundMusic.pause(); backgroundMusic.currentTime = 0; }
-    const tx = await gameContract.submitScore(Number(score));
-    console.log("submitScore tx:", tx.hash);
-    alert("Score submission sent. Waiting for confirmation...");
-    await tx.wait();
-    alert("Score submitted on-chain ✅");
-    // ask index to show leaderboard
-    try { window.postMessage({ type: "scoreSubmitted" }, "*"); } catch(e){}
-  } catch (err) {
-    console.error("submitScore error", err);
-    // 4001 is user rejected request
-    if (err.code !== 4001) {
-        alert("Submit score failed: " + (err && err.message ? err.message : String(err)));
+async function submitScoreTx(score) {
+    if (!gameContract || !signer) {
+        // [Handler error seperti biasa]
+        showWaitingMessage("🚨 Error: Wallet not connected or contract failed to load.", 5000);
+        if (gameFrame && gameFrame.contentWindow) {
+            gameFrame.contentWindow.postMessage({ type: "scoreTxFailed" }, "*"); 
+        }
+        return false;
     }
-  }
+    
+    const currentFrame = gameFrame || $("gameFrame");
+
+    try {
+        const scoreNum = Number(score);
+        if (isNaN(scoreNum)) throw new Error("Invalid score format.");
+
+        // 🔥 KRITIS: HAPUS SEMUA PESAN DARI APP.JS, LALU TAMPILKAN INSTRUKSI
+        const gm = document.getElementById('__waiting_msg'); 
+        if (gm) gm.remove();
+        showWaitingMessage(`🔔 Submitting Score ${scoreNum}. CHECK YOUR WALLET NOW to Confirm!`, 0); 
+        
+        if (backgroundMusic) { backgroundMusic.pause(); }
+
+        // 1. Pemicu dialog konfirmasi wallet
+        const tx = await gameContract.submitScore(scoreNum); 
+
+        // 🔥 KRITIS: GANTI PESAN JADI TUNGGU KONFIRMASI JARINGAN
+        showWaitingMessage("Transaction sent. Waiting for network confirmation...", 0);
+
+        // 2. Tunggu hingga transaksi dikonfirmasi di jaringan
+        const receipt = await tx.wait(); 
+
+        // 3. Kirim sinyal konfirmasi balik ke iframe
+        if (currentFrame && currentFrame.contentWindow) {
+            currentFrame.contentWindow.postMessage({ type: "scoreTxConfirmed" }, "*");
+        }
+        
+        // 4. Tampilkan konfirmasi sukses
+        showWaitingMessage(`✅ Score ${scoreNum} confirmed! TX: ${receipt.transactionHash.substring(0, 8)}...`, 4000);
+        
+        return true;
+    } catch (error) {
+        const gm = document.getElementById('__waiting_msg'); 
+        if (gm) gm.remove();
+        console.error("Score submission failed:", error);
+        
+        // 🔥 KRITIS: Kirim sinyal kegagalan ke iframe (ini akan memunculkan tombol)
+        if (currentFrame && currentFrame.contentWindow) {
+            currentFrame.contentWindow.postMessage({ type: "scoreTxFailed" }, "*"); 
+        }
+        
+        showWaitingMessage(`❌ Score submission failed: Transaction Rejected by user or failed.`, 6000);
+        return false;
+    }
 }
 
 // ---------------- MESSAGE HANDLER ----------------
