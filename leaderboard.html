@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leaderboard - Somnia</title>
+    
     <script src="libs/ethers.min.js"></script>
+    
     <style>
         body {
             font-family: Trebuchet MS, sans-serif;
@@ -89,27 +91,59 @@
 <script>
 // ========== CONFIG (Web3) ==========
 const CONTRACT_ADDRESS = "0x35a7f3eE9A2b5fdEE717099F9253Ae90e1248AE3"; 
-// FIX RPC: Menggunakan RPC publik yang lebih stabil
 const FALLBACK_RPC_URL = "https://somnia-rpc.publicnode.com"; 
+
+// FIX 2: Tambahkan fungsi Jackpot dan Top Score ke ABI
 const CONTRACT_ABI = [
-    // Hanya sisakan ABI yang benar-benar dibutuhkan
-    "function getTop10() view returns (address[] topPlayers, uint256[] scores)"
+    "function getTop10() view returns (address[] topPlayers, uint256[] scores)",
+    "function jackpotBalance() view returns (uint256)", // Fungsi Jackpot
+    "function topScore() view returns (uint256)"       // Fungsi Top Score
 ];
 
 // ========== CORE LOGIC ==========
+
+async function fetchHeaderData(contract) {
+    try {
+        // 1. Fetch data dari kontrak
+        const jackpotWei = await contract.jackpotBalance();
+        const currentTopScore = await contract.topScore();
+
+        const jackpotSomi = ethers.utils.formatEther(jackpotWei);
+        const topScoreValue = currentTopScore.toString();
+        
+        // 2. Kirim data ke parent (app.js)
+        window.parent.postMessage({ 
+            type: "leaderboardData", 
+            jackpot: jackpotSomi, 
+            topScore: topScoreValue 
+        }, "*");
+        
+    } catch (e) {
+        console.error("Error fetching header data (Jackpot/Top):", e);
+        // Kirim nilai default jika gagal agar header tidak kosong
+        window.parent.postMessage({ 
+            type: "leaderboardData", 
+            jackpot: "0.000000", 
+            topScore: "0" 
+        }, "*");
+    }
+}
+
 
 async function initializeWeb3() {
     let provider;
     
     try {
-        // Langsung gunakan JSON-RPC Provider untuk koneksi read-only yang cepat dan stabil
         provider = new ethers.providers.JsonRpcProvider(FALLBACK_RPC_URL);
-        
         const network = await provider.getNetwork();
         
         document.getElementById('connectionStatus').innerHTML = `✅ Terhubung ke Blockchain: Chain ID ${network.chainId}`;
 
         const gameContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        
+        // FIX 3: Panggil fungsi fetching Header baru
+        await fetchHeaderData(gameContract); 
+        
         await fetchLeaderboard(gameContract);
 
     } catch (error) {
@@ -124,7 +158,6 @@ async function fetchLeaderboard(contract) {
     tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Mengambil data Top 10...</td></tr>';
 
     try {
-        // Panggil fungsi kontrak
         const [topPlayers, scores] = await contract.getTop10();
         
         if (topPlayers.length === 0 || scores.length === 0) {
@@ -132,39 +165,28 @@ async function fetchLeaderboard(contract) {
             return;
         }
 
-        // --- FIX: Pemrosesan BigNumber dan Deduplikasi ---
         const uniqueScores = new Map(); 
 
         topPlayers.forEach((player, scoreIndex) => {
-            // FIX: Menggunakan toNumber() hanya untuk BigNumber yang dipastikan kecil.
-            // Jika skor sangat besar, toNumber() akan gagal. Jika skor adalah BigNumber, 
-            // kita harus membandingkannya sebagai BigNumber, tetapi karena ini skor game, 
-            // kita asumsikan angka ini aman untuk diconvert ke Number.
-            const currentScore = Number(scores[scoreIndex]); // Lebih aman dari .toNumber()
+            const currentScore = Number(scores[scoreIndex]); 
 
-            // Hanya simpan skor tertinggi untuk setiap pemain
             if (!uniqueScores.has(player) || currentScore > uniqueScores.get(player)) {
                 uniqueScores.set(player, currentScore);
             }
         });
 
-        // Konversi Map ke Array, Sortir, dan Batasi Top 10
         const finalLeaderboard = Array.from(uniqueScores, ([address, score]) => ({ address, score }));
-        
-        // Sorting berdasarkan skor (descending)
         finalLeaderboard.sort((a, b) => b.score - a.score);
 
         const top10Ranked = finalLeaderboard.slice(0, 10);
-        // --- AKHIR FIX ---
         
-        tbody.innerHTML = ''; // Clear loading message
+        tbody.innerHTML = ''; 
 
         top10Ranked.forEach((item, index) => {
             const rank = index + 1;
             const score = item.score.toString();
             const player = item.address;
             
-            // Format address
             const displayAddress = player.substring(0, 6) + '...' + player.substring(player.length - 4);
             
             const row = tbody.insertRow();
