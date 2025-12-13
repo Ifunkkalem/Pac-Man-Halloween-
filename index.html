@@ -19,23 +19,25 @@
   font-family:Trebuchet MS,sans-serif;
 }
 
-/* Memastikan BODY menggunakan 100% tinggi viewport yang tersedia (penting untuk mobile DApps) */
+/* FIX 1: Memaksa BODY menggunakan 100% tinggi viewport dan menggunakan Flexbox vertikal */
 body {
   height: 100vh;
-  min-height: 100%; /* Fallback */
-  background: linear-gradient(to right,#fff,#ff0000);
+  min-height: 100%; 
+  background: linear-gradient(to right, #fff, #ff0000);
   color: #fff;
-  overflow-x: hidden;
-  overflow-y: auto; /* Izinkan scroll jika konten sangat besar, tapi layout utama harus dihindari */
+  overflow: hidden; /* Mencegah scroll global */
+  display: flex; /* Aktifkan Flexbox di body */
+  flex-direction: column; /* Konten body disusun vertikal */
 }
 
 /* ==== LAYOUT UTAMA ==== */
 #wrap {
   display: flex;
-  min-height: 100%; /* Mengambil tinggi body */
+  flex: 1; /* FIX 2: Membuat wrap mengisi sisa ruang body (100% tinggi) */
   width: 100%;
 }
 
+/* Sidebar diubah menjadi header horizontal di mobile */
 #sidebar {
   width: 160px;
   background: #fff;
@@ -44,19 +46,18 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  /* Tambahkan posisi tetap (jika diperlukan) atau biarkan mengikuti aliran */
+  flex-shrink: 0; /* Pastikan sidebar tidak menyusut */
 }
 
 #main {
-  flex: 1;
+  flex: 1; /* Mengambil sisa lebar */
   padding: 10px;
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* FIX 3: Susun konten #main secara vertikal */
   align-items: center;
   background: linear-gradient(to bottom, #ff0000, #800000);
   position: relative;
-  /* FIX: Mengambil sisa ruang yang tersedia di flex container */
-  min-height: 0;
+  min-height: 0; /* Penting untuk Flexbox agar tidak overflow */
 }
 
 button {
@@ -80,22 +81,22 @@ button {
   color: #0ff;
   text-shadow: 0 0 4px #0ff;
   font-size: 12px;
+  flex-shrink: 0; /* Pastikan footer tetap di bawah */
 }
 
 /* ==== AREA UTAMA (LOGO / GAME / LEADERBOARD) ==== */
-/* FIX: Hapus aspect-ratio agar tinggi bisa fleksibel, tapi batasi MAX width */
 .content-area {
   width: 100%;
   max-width: 480px;
+  /* FIX 4: Gunakan flex: 1 untuk membuat area konten game mengisi ruang vertikal yang tersisa di #main */
+  flex: 1; 
   background: rgba(0,0,0,0.25);
   border-radius: 12px;
   overflow: hidden;
   position: relative;
-  
-  /* FIX: Ambil ruang sebanyak mungkin di #main, tapi biarkan tingginya fleksibel */
-  flex: 1; 
-  /* Gunakan max-height untuk menghindari overlap dengan d-pad jika ada */
-  max-height: calc(100vh - 200px); /* Estimasi ruang yang tersisa untuk UI/footer/dpad */
+  /* Tambahkan min-height agar iframe memiliki ruang */
+  min-height: 300px;
+  margin-bottom: 10px; /* Jarak dari footer */
 }
 
 iframe {
@@ -105,10 +106,10 @@ iframe {
   display: none;
 }
 
-/* ==== POSTER LOGO ==== */
+/* ==== POSTER LOGO & OVERLAY (TIDAK BERUBAH) ==== */
 #logoPlaceholder {
-  /* Hapus height:100% dan biarkan mengikuti .content-area */
   width: 100%;
+  height: 100%;
   position: absolute;
   inset: 0;
   display: flex;
@@ -117,79 +118,87 @@ iframe {
   background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(255,255,255,0.02));
 }
 
-#logoPlaceholder img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+#logoPlaceholder img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-#poster-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  text-align: center;
-  padding: 20px;
-  text-shadow: 0 0 5px black;
-  pointer-events: none;
+#poster-overlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  align-items:center;
+  text-align:center;
+  padding:20px;
+  text-shadow:0 0 5px black;
+  pointer-events:none; 
 }
 
-#poster-overlay h2 {font-size: 1.6em; color: #facc15}
-#poster-overlay p {font-size: 1em}
+#poster-overlay h2{font-size:1.6em;color:#facc15}
+#poster-overlay p{font-size:1em}
 
-.overlay-cta {
-  padding: 12px 30px;
-  font-size: 1.1em;
-  font-weight: bold;
-  border-radius: 8px;
-  pointer-events: auto;
-  cursor: pointer;
+.overlay-cta{
+  padding:12px 30px;
+  font-size:1.1em;
+  font-weight:bold;
+  border-radius:8px;
+  pointer-events:auto; 
+  cursor:pointer;
 }
 
 /* ==== MOBILE LOCK (Hingga 768px) ==== */
 @media (max-width:768px){
-  /* FIX: Pastikan wrap mengambil 100% tinggi viewport */
+  /* FIX 5: Layout utama di mobile menjadi tumpukan vertikal */
   #wrap {
       flex-direction: column;
-      min-height: 100vh;
+      min-height: 100%;
+      flex: 1;
   }
   
-  /* Sidebar diubah menjadi header horizontal, HINDARI penggunaan height:100% pada elemen di dalamnya */
+  /* Sidebar/Header */
   #sidebar {
     width: 100%;
     flex-direction: row;
     justify-content: space-around;
     flex-wrap: wrap;
-    /* FIX: Hapus padding vertical agar lebih ringkas di atas */
-    padding: 8px 12px;
+    padding: 8px 10px;
+    gap: 4px;
   }
 
-  /* Main area harus mengambil sisa ruang dan mengizinkan scroll internal jika diperlukan */
-  #main {
-    flex: 1; 
-    padding: 10px;
-    /* FIX: Tambahkan min-height:0 agar flex-grow berfungsi */
-    min-height: 0; 
+  /* Wallet Info yang lebih ringkas */
+  #walletAddr,#walletBal {
+      display:block;
+      font-size:10px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      margin: 0 4px;
   }
   
-  /* FIX: Batasi tinggi area konten agar tidak overflow ke footer/dpad (Jika D-Pad ada di index.html) */
-  .content-area {
-      /* Tinggi yang diambil oleh #title, #topScoreSummary, dan .footer sekitar 120px. */
-      /* Kita atur agar content-area mengambil sisa ruang vertikal di dalam #main */
-      flex: 1; /* Ambil sisa ruang */
-      max-height: calc(100vh - 120px); /* Fallback untuk DApps browser */
-      /* Kita tidak bisa memberikan nilai fix karena D-Pad tidak ada di HTML ini. */
-  }
-
-
-  #walletAddr,#walletBal {display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin: 0 4px;}
-  
-  /* FIX: Perbaiki ukuran tombol agar tidak terlalu besar */
+  /* Ukuran tombol lebih kecil di mobile header */
   #btnConnect, #btnPlay, #btnLeaderboard {
     padding: 6px 10px;
     font-size: 12px;
+  }
+
+  /* Main area harus mengambil sisa ruang di bawah header */
+  #main {
+    flex: 1; 
+    min-height: 0; 
+  }
+  
+  /* Ringkaskan Summary */
+  #topScoreSummary {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  
+  /* Pastikan iframe mengambil seluruh ruang content-area */
+  .content-area {
+    min-height: 300px; /* Memastikan iframe memiliki tinggi minimum yang layak */
   }
 }
 </style>
@@ -200,7 +209,7 @@ iframe {
 
   <div id="sidebar">
     <button id="btnConnect">Connect Wallet</button>
-    <div style="display:flex; flex-direction:column; justify-content:center;">
+    <div style="display:flex; flex-direction:column; justify-content:center; flex-shrink: 0;">
         <div id="walletAddr" title="Wallet address">Wallet: -</div>
         <div id="walletBal" title="Native balance">SOMI: -</div>
     </div>
@@ -236,13 +245,12 @@ iframe {
       <iframe id="leaderFrame" src="leaderboard.html" title="Leaderboard"></iframe>
 
     </div>
-    
+
     <div class="footer">created by: ifunkkalem | @Ifunkkalem91</div>
   </div>
 </div>
 
 <script>
-// ... (Kode JavaScript Anda di sini) ...
 const btnConnect = document.getElementById('btnConnect');
 const btnPlay = document.getElementById('btnPlay');
 const btnLeaderboard = document.getElementById('btnLeaderboard');
@@ -271,13 +279,12 @@ function showMain(id){
 // Now Play asks parent (app.js) to start the game; parent must reply with {type:'paySuccess'}.
 function requestStartGame(){
   // send a request to parent/app.js to start (pay & unlock)
-  // parent should perform wallet tx and reply with {type:'paySuccess'} when confirmed.
   try{
     window.parent.postMessage({ type: 'requestStartGame' }, '*');
-    // show a subtle waiting feedback while parent handles tx (parent could also send status messages)
+    // show a subtle waiting feedback while parent handles tx
     const gm = document.createElement('div');
     gm.id = '__waiting_req';
-    gm.style.position='fixed'; /* FIX: Gunakan fixed agar tidak terpengaruh scroll */
+    gm.style.position='fixed'; 
     gm.style.left='50%';
     gm.style.top='8px';
     gm.style.transform='translateX(-50%)';
@@ -320,10 +327,6 @@ btnConnect.addEventListener('click', ()=>{
 });
 
 // Listen for messages from parent (app.js)
-// - paySuccess: show game iframe (parent should already have started audio/bg/etc)
-// - walletInfo: update wallet address & balance
-// - forceShowLogo / forceHideLogo (optional)
-// - startFee (optional info)
 window.addEventListener('message', (ev)=>{
   const d = ev.data || {};
   if(!d || typeof d !== 'object') return;
@@ -336,7 +339,6 @@ window.addEventListener('message', (ev)=>{
   }
 
   if(d.type === 'walletInfo'){
-    // Expect { type:'walletInfo', address: '0x...', balance: '0.123' }
     if(d.address){
       walletAddrEl.textContent = 'Wallet: ' + (d.address.length>12 ? d.address.substring(0,6)+'...'+d.address.slice(-4) : d.address);
       walletAddrEl.title = d.address;
@@ -348,7 +350,6 @@ window.addEventListener('message', (ev)=>{
   }
 
   if(d.type === 'startFee'){
-    // optional: parent can send fee info
     console.info('Start fee:', d.feeEth || d.feeWei);
   }
 
